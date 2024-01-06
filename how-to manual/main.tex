@@ -1,0 +1,127 @@
+\documentclass{article}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{hyperref}
+
+\title{Forward Solver manual}
+\author{}
+\date{January 2024}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+% Introduction of what it is about
+In this report, we describe the working of the forward solver for the quadruple image lens configuration. 
+
+% Background of how we came here to be
+\section{Background}
+Witt discovered that the quad images lie on a hyperbola. Wynne and Schechter showed that they also lie on an ellipse. So, the four images of a quadruple image configuration lie on the intersection of the Wynne-Schechter ellipse and Witt hyperbola. Luhtaru et al. extended this result and showed that the configurations from from an SIEP + XS potential, where the shear is parallel to ellipticity lie on the intersection of Witt's hyperbola and Wynne-Schechter ellipse. Falor and Schechter showed that any configuration of images which lie on the intersection of the ellipse and hyperbola where the center of ellipse lies on the hyperbola are given by the solutions of a quartic equation called the Asymptotically Circular Lens Equation (ACLE). This is the equation forms the basis of this forward solver. This equation is parametrized by one complex parameter $W$ which dictates the angular configurations of the images.
+
+
+\section{Theory and Mechanics}
+Falor and Schechter showed that for both SIEP and SIS+XS potentials, we can do the following to get the image configurations:
+\begin{enumerate}
+    \item From the potential and source position, one can use the lens equation to find the Witt hyperbola and Wynne-Schechter ellipse.
+    \item From the parameter of the hyperbola and ellipse, find the parameter of the ACLE, $W$.
+    \item Get the angular image configurations by solving the ACLE.
+    \item Get the image positions by scaling the angular image configurations and scronching them to the Wynne-Schechter ellipse.
+    \item Once one knows the image positions, one can also find the magnifications using double derivatives of the potential.
+\end{enumerate}
+Given the parameters of lens potential and source position, the configuration solver first standardizes the potential so that its major axis is inclined with x-axis and is centered at origin. Then, it calculates the parameter $W$ from the parameters of the potential and source position. Then, it uses the closed-form solutions of the ACLE to get the angular image configurations. It then scales and scronches the angular image configurations placing them on the Wynne-Schechter ellipse. It can calculate the magnifications of the images using the double derivatives of the potential calculated at the image positions.
+
+Finally, it destandardizes the image positions by rotating them back to the original position angle and translating them back to the original center.
+
+\subsection{Hyperbola and ellipse to ACLE}
+Assume the center of Witt hyperbola lies at $(x_h, y_h)$. The Wynne-Schechter ellipse is centered at $(x_e, y_e)$ with the length of semi-axis being $(x_a, y_a)$. We also assume that the center of ellipse lies on the hyperbola. Then, the parameter $W$ is given by:
+\begin{equation}
+    W = \frac{x_h-x_e}{x_a} + i\frac{y_h-y_e}{y_a}
+\end{equation}
+We have detailed the derivation in appendix~\ref{appsec: WfromHyperbolaAndEllipse}.
+
+\subsection{Scronching to image positions}
+Once we have the angular image configurations given by $\theta_i$, we can get the image positions by translating them to center of ellipse and stretching them to the semi-axis of the ellipse. This is given by:
+\begin{eqnarray}
+    x_i &=& x_a\cos\theta_i + x_e \\
+    y_i &=& y_a\sin\theta_i + y_e
+\end{eqnarray}
+
+\subsection{Derivatives}
+Instead of floating points, we use \texttt{torch} tensors throughout the calculations which are objects which store the value along with the previous computational graph. From the output tensor, one can get the derivatives of the output with respect to the input tensors by traversing the computational graph while keeping track of the derivatives and applying chain rule. This is called automatic differentiation. We use this to calculate the derivatives image positions and magnifications with respect to the lens parameters and source position.
+
+
+\section{Potential}
+Here we use the SIEP+XS potential with $\epsilon$ as the ellipticity and $\gamma$ as the external shear. Let $(x_g, y_g)$ be the center of the potential and we assume that the major axis of the potential is along the x-axis. Then, the potential is given by:
+\begin{equation}
+    \psi(x,y) = b\sqrt{(x-x_g)^2 + \frac{(y-y_g)^2}{(1-\epsilon)^2}} - \frac{\gamma}{2}\left((x-x_g)^2 - (y-y_g)^2\right)
+\end{equation}
+The shear and ellipticity are parallel to each other.
+
+\subsection{Ellipse and Hyperbola}
+For this potential, the Wynne-Schechter ellipse is given by
+$$ \frac{(1+\gamma)^2\left(x - \frac{x_s+\gamma x_g}{1+\gamma}\right)^2}{b^2} + \frac{(1-\epsilon)^2(1-\gamma)^2\left(y - \frac{y_s-\gamma y_g}{1-\gamma}\right)^2}{b^2} = 1 $$
+
+This gives us the parameters:
+$$ x_e, y_e = \frac{x_s+\gamma x_g}{1+\gamma}, \frac{y_s-\gamma y_g}{1-\gamma} $$
+$$ x_a, y_a = \frac{b}{1+\gamma}, \frac{b}{(1-\epsilon)(1-\gamma)} $$
+
+On the other hand, the Witt's hyperbola is given by
+$$ \frac{x(1+\gamma) - (x_s +\gamma x_g)}{y(1-\gamma) - (y_s - \gamma y_g)} =(1-\epsilon)^2\frac{x-x_g}{y-y_g} $$
+
+This gives the center of hyperbola:
+$$ x_h, y_h = x_g + \frac{x_s - x_g}{1+\gamma -(1-\gamma)(1-\epsilon)^2}, y_g + \frac{(y_s - y_g)(1-\epsilon)^2}{1-\gamma -(1+\gamma)(1-\epsilon)^2} $$
+
+The parameter $W$ of ACLE is given by
+$$ W = \frac{(1-\epsilon)}{b\left(1-(1-\epsilon)^2\frac{1-\gamma}{1+\gamma}\right)} \left( (1-\epsilon)\frac{1-\gamma}{1+\gamma}(x_s-x_g) -i (y_s-y_g) \right) $$
+
+\subsection{Match with Keeton}
+This output of the forward solver matches with the output of the \texttt{Keeton} package. We have tested this for multiple configurations varying all the lens parameters and source position. Our program is limited to the case where shear is parallel to the ellipticity. In these cases, our program's output matches with the \texttt{Keeton} package up to more than 8 decimal places.
+
+\appendix
+% Appendix, how to specifically use it
+
+\section{How to use the code}
+The code is written in \texttt{python} and uses the \texttt{PyTorch} library for mathematical functions and automatic differentiation. The code is available at \url{https://github.com/chiragfalor/Quad-configurations-solver}. It has the following files:
+\begin{enumerate}
+    \item \texttt{quartic\_solver.py}: This file contains the function to solve the ACLE quartic equation. The function \texttt{\_get\_quartic\_solution} takes in a complex parameter $W$ and returns the angular image configuration.\\
+    \item \texttt{potentials.py}: This file contains the base class \texttt{Potential}. It contains the main class \texttt{SIEP\_plus\_XS} which inherits from \texttt{Potential} and is specific to the SIEP+XS potential. It has the functions \texttt{get\_image\_configuration} and \texttt{get\_all\_derivations}.\\
+    \item \texttt{main.py}: This script will use the class \texttt{SIEP\_plus\_XS} from \texttt{potentials.py} to compute the image positions and magnifications from the lens parameters and source position.
+\end{enumerate}
+
+To utilize the code, one needs to import the \texttt{SIEP\_plus\_XS} class from \texttt{potentials.py}. Then, one can create an object of this class by passing the lens parameters: \texttt{b, x\_g, y\_g, eps, eps\_theta, gamma, gamma\_theta}. Here, \texttt{eps\_theta} and \texttt{gamma\_theta} are in degrees and they should be equal to each other.
+
+Then, from this object, one can call the function \texttt{get\_image\_configuration} by passing the source position: \texttt{x\_s, y\_s}. This will return the image positions and magnifications. One can also call the function \texttt{get\_all\_derivations} with source position to get the derivatives of the image positions and magnifications with respect to the lens parameters and source position. The output of these functions will be dictionary objects. The keys of the dictionary are the names of the parameters and the values are the corresponding values of the parameters.
+
+A sample code is given in \texttt{main.py} and also given below for reference.
+\begin{verbatim}
+    from potentials import SIEP_plus_XS
+
+    pot_params = {
+        "b": 1.00,
+        "x_g": 0.00,
+        "y_g": 0.00,
+        "eps": 0.3,
+        "eps_theta": -90.0,
+        "gamma": 0.15,
+        "gamma_theta": -90.0,
+    }
+
+    x_s, y_s = 0.04, 0.1
+
+    # initialize potential
+    potential = SIEP_plus_XS(**pot_params)
+
+    image_configurations = potential.get_image_configuration(x_s=x_s, y_s=y_s)
+    print(image_configurations)
+
+    derivatives = potential.get_all_derivatives(x_s=x_s, y_s=y_s)
+    print(derivatives)
+\end{verbatim}
+
+
+
+
+
+\section{$W$ from Witt Hyperbola and Wynne-Schechter Ellipse}\label{appsec: WfromHyperbolaAndEllipse}
+
+\end{document}
