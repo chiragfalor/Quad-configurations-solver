@@ -1,0 +1,16 @@
+> Enter galaxies for model #1:
+Enter what to vary for each galaxy:
+> Note: found image outside tile
+  source  4.000000e-02  1.000000e-01
+  image   1.691249e-02 -1.046353e+00
+  tile    0.000000e+00  0.000000e+00
+  tile   -6.379810e-03 -2.525367e-02
+  tile   -2.165718e-03 -2.595688e-02
+findimg results:
+ 4.000000e-02  1.000000e-01  # source
+# 4 images:  x  y  mag  tdel
+ 1.263380e+00  5.062425e-01  2.737205e+00  0.000000e+00
+-1.207083e+00  1.355303e-01  3.235294e+00  1.403253e-01
+-2.216816e-01  1.230515e+00  2.498838e+00  2.954228e-01
+ 1.691249e-02 -1.046353e+00  1.427624e+00  5.164846e-01
+> 
