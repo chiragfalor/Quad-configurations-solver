@@ -26,6 +26,11 @@ def _get_quartic_solution(W, pm1=+1, pm2=+1):
     )
 
     z = (term1 + pm2 * torch.sqrt(term1**2 - 2 * term2)) / 2
+
+    # if magnitude of z is not close to 1 return None
+    if not isclose(torch.abs(z), torch.tensor(1), rel_tol=1e-09, abs_tol=1e-8):
+        return None
+
     return z
 
 def solve_quartic(W):

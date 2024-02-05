@@ -24,5 +24,5 @@ for i in range(nimg):
   x = img[f'x_{i+1}']
   y = img[f'y_{i+1}']
   mag = img[f'mu_{i+1}']
-  mu = -2.5 * log10(abs(mag)) # I am not sure what mu means
+  mu = -2.5 * log10(abs(mag))
   print("%+23.16e %+23.16e %+23.16e %+23.16e" % (x,y,mag,mu))

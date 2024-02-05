@@ -101,9 +101,18 @@ class Potential:
 
         return soln
     
+    def get_angular_solns(self, **kwargs):
+        solns = set()
+        for i in range(4):
+            s = self.get_soln(image_id=i, **kwargs)
+            if s is not None:
+                solns.add(s)
+        return solns
+    
     def _images_and_mags(self, **kwargs):
         kwargs = tensorize_dict(kwargs)
-        soln = [self.get_soln(image_id=i, **kwargs) for i in range(4)]
+
+        soln = self.get_angular_solns(**kwargs)
         scronched_solns = [self.scronch(s, **kwargs) for s in soln]
         
         mags = [self.soln_to_magnification(soln) for soln in scronched_solns]
