@@ -10,6 +10,16 @@ pot_params = {
     "gamma_theta": -90.0,
 }
 
+# pot_params = {
+#     "b": 1.00,
+#     "x_g": 0.00,
+#     "y_g": 0.00,
+#     "eps": 0.0,
+#     "eps_theta": 0.0,
+#     "gamma": 0.0,
+#     "gamma_theta": 0.0,
+# }
+
 x_s, y_s = 0.04, 0.1
 
 # initialize potential

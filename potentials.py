@@ -1,4 +1,4 @@
-from quartic_solver import _get_quartic_solution
+from quartic_solver import _get_quartic_solution, get_ACLE_angular_solns
 import torch
 
 def rotate(x, y, theta, center=torch.tensor((0, 0))):
@@ -102,12 +102,13 @@ class Potential:
         return soln
     
     def get_angular_solns(self, **kwargs):
-        solns = set()
-        for i in range(4):
-            s = self.get_soln(image_id=i, **kwargs)
-            if s is not None:
-                solns.add(s)
-        return solns
+        W = self.get_W(**kwargs)
+
+        assert isinstance(W, torch.Tensor)
+        assert W.dtype == torch.complex128
+
+        return get_ACLE_angular_solns(W)
+
     
     def _images_and_mags(self, **kwargs):
         kwargs = tensorize_dict(kwargs)

@@ -33,6 +33,19 @@ def _get_quartic_solution(W, pm1=+1, pm2=+1):
 
     return z
 
+
+def get_ACLE_angular_solns(W):
+    solns = set()
+    
+    for i in range(4):
+        # TODO can be sped by restructuring loop
+        pm1 = [+1, -1][i // 2]
+        pm2 = [+1, -1][i % 2]
+        s = _get_quartic_solution(W, pm1, pm2)
+        if s is not None:
+            solns.add(s)
+    return solns
+
 def solve_quartic(W):
     # convert to torch
     W = torch.tensor(W, dtype=torch.complex128)
