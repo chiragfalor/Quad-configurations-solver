@@ -187,6 +187,13 @@ class SIEP_plus_XS(Potential):
         self.gamma = self.pot_params['gamma']
         self.x_g, self.y_g = self.pot_params['x_g'], self.pot_params['y_g']
         self.eps_theta, self.gamma_theta = self.pot_params['theta'], self.pot_params['theta']
+
+        # patch for circular case. TODO: better patch using some direct approximate solution when W is so big
+        if torch.abs(self.eps) + torch.abs(self.gamma) < 1e-8:
+            with torch.no_grad():
+                self.gamma += 1e-8
+
+
         # self.potential = lambda x, y: b*torch.sqrt((x-x_g)**2 + (y-y_g)**2/(1-eps)**2) - gamma/2*((x-x_g)**2 - (y-y_g)**2)
         self.potential = lambda x, y: b*torch.sqrt(x**2 + y**2/(1-eps)**2) - gamma/2*(x**2 - y**2)
 
