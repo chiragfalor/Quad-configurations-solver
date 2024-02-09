@@ -23,12 +23,22 @@ def config_to_set(config):
         (config[f'x_{i}'], config[f'y_{i}'], abs(config[f'mu_{i}'])) for i in range(1, 5) if f'x_{i}' in config
     }
 
-def eq_config(config1, config2):
+def config_to_nomag_set(config):
+    """ Convert image configuration dictionary to a set of tuples for comparison. """
+    return {
+        (config[f'x_{i}'], config[f'y_{i}']) for i in range(1, 5) if f'x_{i}' in config
+    }
+
+def eq_config(config1, config2, check_mag=True):
     """ Compare two image configurations. 
     The first configuration should be a subset of the second.
     """
-    config1_set = config_to_set(config1)
-    config2_set = config_to_set(config2)
+    if check_mag:
+        config1_set = config_to_set(config1)
+        config2_set = config_to_set(config2)
+    else:
+        config1_set = config_to_nomag_set(config1)
+        config2_set = config_to_nomag_set(config2)
     return all(any(pytest.approx(res, rel=1e-3, abs=1e-5) == exp for exp in config2_set) for res in config1_set)
 
 def get_image_configuration(params):
