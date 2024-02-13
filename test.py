@@ -1,4 +1,4 @@
-from quartic_solver import solve_quartic
+from quartic_solver import get_ACLE_angular_solns
 from potentials import SIEP_plus_XS
 import pytest
 import os
@@ -11,7 +11,7 @@ import os
     (complex(0, -1), [-1j, -1j, -1j, 1j]),
 ])
 def test_solve_quartic(W, expected):
-    solutions = solve_quartic(W)
+    solutions = get_ACLE_angular_solns(W)
     # Convert solutions to a set for order-independent comparison
     solutions_set = {complex(round(sol.real, 3), round(sol.imag, 3)) for sol in solutions}
     expected_set = {complex(round(sol.real, 3), round(sol.imag, 3)) for sol in expected}

@@ -46,14 +46,10 @@ def get_ACLE_angular_solns(W):
             solns.add(s)
     return solns
 
-def solve_quartic(W):
-    # convert to numpy
-    W = np.array(W, dtype=np.complex128)
-    return [_get_quartic_solution(W, pm1, pm2).item() for pm1 in [+1, -1] for pm2 in [+1, -1]]
 
 if __name__ == "__main__":
-    W = complex(0.000001, 0.000001)
-    solutions = solve_quartic(W)
+    W = complex(0.03, 0.1)
+    solutions = get_ACLE_angular_solns(W)
 
     for i, sol in enumerate(solutions):
         print(f"Solution {i+1}: {sol:.3f}")
