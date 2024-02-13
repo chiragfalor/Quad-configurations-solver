@@ -1,31 +1,42 @@
 from quartic_solver import _get_quartic_solution, get_ACLE_angular_solns
 import numpy as np
+from typing import Tuple, List, Set, Dict, Any
+import numpy as np
 
-def rotate(x, y, theta, center=np.array([0, 0])):
+def rotate(x: np.float64, y: np.float64, theta: np.float64, center: np.ndarray = np.array([0, 0])) -> Tuple[np.float64, np.float64]:
     """
     Rotate a point counterclockwise by a given angle around a given origin.
     The angle should be given in degrees.
+
+    Parameters
+    ----------
+    x : float
+        The x-coordinate of the point to be rotated.
+    y : float
+        The y-coordinate of the point to be rotated.
+    theta : float
+        The angle of rotation in degrees.
+    center : np.ndarray, optional
+        The center of rotation, by default np.array([0, 0])
+
+    Returns
+    -------
+    Tuple[float, float]
+        The rotated coordinates (x_new, y_new).
     """
     theta = np.deg2rad(theta)
-    x, y = x-center[0], y-center[1]
+    x, y = x - center[0], y - center[1]
     x_new = x * np.cos(theta) - y * np.sin(theta)
     y_new = x * np.sin(theta) + y * np.cos(theta)
-    x_new, y_new = x_new+center[0], y_new+center[1]
+    x_new, y_new = x_new + center[0], y_new + center[1]
     return x_new, y_new
-
-
-def tensorize_dict(d):
-    return {k: v if isinstance(v, np.ndarray) else np.array(v, dtype=np.float64)
-                  for k, v in d.items()}
-
-
 
 class Potential:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
-        self.pot_params = tensorize_dict(kwargs)
+        self.pot_params = kwargs.copy()
 
-    def get_W(self, x_s, y_s, **kwargs):
+    def get_W(self, x_s, y_s, **kwargs) -> np.complex128:
         '''
         returns the W parameter of the ACLE
         '''
@@ -61,34 +72,6 @@ class Potential:
         return x_e + x_a*costheta + 1j*(y_e + y_a*sintheta)
     
 
-    # first derivatives
-    def grad_pot(self, x, y):
-        '''
-        returns a tuple of the first derivatives of the potential with respect to x and y
-        '''
-        raise(Exception, "not implemented with numpy")
-    
-    # second derivatives
-    def double_grad_pot(self, x, y):
-        '''
-        returns a tuple of the second derivatives of the potential.
-        (d^2 psi / dx^2, d^2 psi / dy^2, d^2 psi / dx dy)
-        '''
-        grads = self.grad_pot(x, y)
-        D_xx, D_xy = np.gradient(grads[0], [x, y])
-        D_yx, D_yy = np.gradient(grads[1], [x, y])
-        assert np.allclose(D_xy, D_yx)
-        return D_xx, D_yy, D_xy
-    
-    def soln_to_magnification(self, scronched_soln):
-        '''
-        returns the magnification of the image corresponding to the solution soln
-        '''
-        x, y = scronched_soln.real, scronched_soln.imag
-        D_xx, D_yy, D_xy = self.double_grad_pot(x, y)
-        mu_inv = (1 - D_xx)*(1 - D_yy) - D_xy**2
-        return 1/mu_inv
-    
     def get_soln(self, image_id=0, **kwargs):
         W = self.get_W(**kwargs)
         pm1 = [+1, -1][image_id // 2]
@@ -109,7 +92,7 @@ class Potential:
 
     
     def _images_and_mags(self, **kwargs):
-        kwargs = tensorize_dict(kwargs)
+        kwargs = kwargs.copy()
 
         soln = self.get_angular_solns(**kwargs)
         scronched_solns = [self.scronch(s, **kwargs) for s in soln]
@@ -127,41 +110,12 @@ class Potential:
         return [image.item() for image in images], [mag.item() for mag in mags]
     
     
-    def get_derivative(self, qty, param_name, **kwargs):
-        kwargs = tensorize_dict(kwargs)
-        images, mags = self._images_and_mags(**kwargs)
-        # qty is x_i, y_i, or mu_i
-        qty, i = qty.split('_')
-        i = int(i)
-        assert qty in ['x', 'y', 'mu']
-        param = self.pot_params[param_name] if param_name in self.pot_params else kwargs[param_name] if param_name in kwargs else KeyError(f"Parameter {param_name} not found in potential parameters or kwargs")
-        if qty == 'x':
-            return self.d(images[i-1].real, param).item()
-        elif qty == 'y':
-            return self.d(images[i-1].imag, param).item()
-        elif qty == 'mu':
-            return self.d(mags[i-1], param).item()
-        
-    def get_all_derivatives(self, **kwargs):
-        kwargs = tensorize_dict(kwargs)
-        images, mags = self._images_and_mags(**kwargs)
-        kwargs.update(self.pot_params)
-        derivatives = {}
-        for param_name, param in self.pot_params.items():
-            for i, mag in enumerate(mags):
-                dW = self.d(mag, param)
-                derivatives[f'dmu_{i+1}_d{param_name}'] = dW.item()
-            for i, image in enumerate(images):
-                dW = self.d(image.real, param)+1j*self.d(image.imag, param)
-                derivatives[f'dx_{i+1}_d{param_name}'] = dW.real.item()
-                derivatives[f'dy_{i+1}_d{param_name}'] = dW.imag.item()
-        return derivatives
     
     def get_image_configuration(self, raw=False, **kwargs):
-        image_conf = tensorize_dict(kwargs) if raw else kwargs.copy()
+        image_conf = kwargs.copy()
         images, mags = self.images_and_mags(**image_conf) if not raw else self._images_and_mags(**image_conf)
 
-        image_conf.update(self.pot_params if raw else {k: v.item() for k, v in self.pot_params.items()})
+        image_conf.update(self.pot_params)
         for i, (im, mag) in enumerate(zip(images, mags)):
             image_conf[f'x_{i+1}'] = im.real
             image_conf[f'y_{i+1}'] = im.imag
@@ -175,7 +129,7 @@ class Potential:
 
 
 class SIEP_plus_XS(Potential):
-    def __init__(self, b=0, eps=0, gamma=0, x_g=0, y_g=0, eps_theta=0, gamma_theta=None, **kwargs):
+    def __init__(self, b=1.0, eps=0.0, gamma=0.0, x_g=0.0, y_g=0.0, eps_theta=0.0, gamma_theta=None, **kwargs):
         # phi = b\sqrt{x^2 + y^2/(1-eps)^2} - gamma/2*(x^2 - y^2)
         self.gamma_theta = eps_theta if gamma_theta is None else gamma_theta
         # assert theta are close, we don't handle unparallel cases yet
@@ -195,22 +149,22 @@ class SIEP_plus_XS(Potential):
         # self.potential = lambda x, y: b*torch.sqrt((x-x_g)**2 + (y-y_g)**2/(1-eps)**2) - gamma/2*((x-x_g)**2 - (y-y_g)**2)
         self.potential = lambda x, y: b*np.sqrt(x**2 + y**2/(1-eps)**2) - gamma/2*(x**2 - y**2)
 
-    def standardize(self, x, y):
-        x, y = x-self.x_g, y-self.y_g
+    def standardize(self, x: np.float64, y: np.float64) -> Tuple[np.float64, np.float64]:
+        x, y = x - self.x_g, y - self.y_g
         return rotate(x, y, -self.eps_theta)
     
-    def destandardize(self, x, y):
+    def destandardize(self, x: np.float64, y: np.float64) -> Tuple[np.float64, np.float64]:
         x, y = rotate(x, y, self.eps_theta)
-        x, y = x+self.x_g, y+self.y_g
+        x, y = x + self.x_g, y + self.y_g
         return x, y
 
-    def _get_Wynne_ellipse_params(self, x_s: np.ndarray, y_s: np.ndarray, **kwargs):
+    def _get_Wynne_ellipse_params(self, x_s: np.float64, y_s: np.float64, **kwargs) -> Tuple[Tuple[np.float64, np.float64], Tuple[np.float64, np.float64]]:
         x_s, y_s = self.standardize(x_s, y_s)
         x_e, y_e = (x_s)/(1+self.gamma), (y_s)/(1-self.gamma)
         x_a, y_a = self.b/(1+self.gamma), self.b/((1-self.gamma)*(1-self.eps))
         return (x_e, y_e), (x_a, y_a)
     
-    def get_W(self, x_s, y_s, **kwargs):
+    def get_W(self, x_s: np.float64, y_s: np.float64, **kwargs) -> np.complex128:
         x_s, y_s = self.standardize(x_s, y_s)
         b, eps, g = self.b, self.eps, self.gamma
         f = (1-eps) / (b * (1 - (1-eps)**2 * (1-g)/(1+g)))
