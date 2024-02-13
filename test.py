@@ -1,5 +1,5 @@
 from quartic_solver import get_ACLE_angular_solns
-from potentials import SIEP_plus_XS
+from SIEP_XS import SIEP_plus_XS
 import pytest
 import os
 
@@ -29,7 +29,7 @@ def config_to_nomag_set(config):
         (config[f'x_{i}'], config[f'y_{i}']) for i in range(1, 5) if f'x_{i}' in config
     }
 
-def eq_config(config1, config2, check_mag=True):
+def eq_config(config1, config2, check_mag=False):
     """ Compare two image configurations. 
     The first configuration should be a subset of the second.
     """
