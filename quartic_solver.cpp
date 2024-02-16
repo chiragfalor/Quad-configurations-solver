@@ -3,6 +3,9 @@
 #include <cmath>
 #include <vector>
 #include <iomanip> // Include the necessary header for std::setprecision
+#include "quartic_solver.h" // Include the header file for the function _get_quartic_solution
+
+using namespace std;
 
 std::complex<double> _get_quartic_solution(std::complex<double> W, int pm1 = +1, int pm2 = +1) {
     auto isclose = [](std::complex<double> a, std::complex<double> b, double rel_tol = 1e-09, double abs_tol = 1e-8) {

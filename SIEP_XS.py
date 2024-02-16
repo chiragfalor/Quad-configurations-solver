@@ -10,7 +10,7 @@ def rotate(
     center: np.ndarray = np.array([0, 0]),
 ) -> Tuple[np.float64, np.float64]:
     """
-    Rotate a point counterclockwise by a given angle around a given origin.
+    Rotate a point clockwise by a given angle around a given origin.
     The angle should be given in degrees.
 
     Parameters
@@ -129,8 +129,8 @@ class SIEP_plus_XS:
 
     def images_and_mags(self, x_s: np.float64, y_s: np.float64):
 
-        soln = self.get_angular_solns(x_s, y_s)
-        scronched_solns = [self.scronch(s, x_s, y_s) for s in soln]
+        solns = self.get_angular_solns(x_s, y_s)
+        scronched_solns = [self.scronch(s, x_s, y_s) for s in solns]
 
         # mags = [self.soln_to_magnification(soln) for soln in scronched_solns]
         mags = [np.array(1.0) for soln in scronched_solns]  # no magnification for numpy
@@ -171,5 +171,9 @@ if __name__ == "__main__":
         "y_s": -1.179477e00,
     }
 
+    x_s = source.get("x_s")
+    y_s = source.get("y_s")
+
     pot = SIEP_plus_XS(**test1115)
-    print(pot.get_image_configuration(**source))
+    image_conf = pot.get_image_configuration(**source)
+    print(image_conf)
