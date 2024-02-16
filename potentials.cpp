@@ -106,7 +106,18 @@ public:
         return std::complex<double>(x_e + x_a * costheta, y_e + y_a * sintheta);
     }
 
-    std::unordered_map<std::string, double> get_image_configuration(double x_s, double y_s) {
+    std::vector<std::complex<double>> get_image_configurations(double x_s, double y_s) {
+        std::vector<std::complex<double>> image_configurations;
+        std::vector<std::complex<double>> solns = get_angular_solns(x_s, y_s);
+
+    for (std::complex<double> soln : solns) {
+            image_configurations.push_back(scronch(soln, x_s, y_s));
+        }
+
+        return image_configurations;
+    }
+
+    std::unordered_map<std::string, double> get_image_and_mag_configuration(double x_s, double y_s) {
         std::unordered_map<std::string, double> image_conf;
         image_conf["b"] = b;
         image_conf["eps"] = eps;
@@ -118,11 +129,7 @@ public:
         image_conf["x_s"] = x_s;
         image_conf["y_s"] = y_s;
 
-        std::vector<std::complex<double>> soln = get_angular_solns(x_s, y_s);
-        std::vector<std::complex<double>> scronched_solns;
-        for (const auto& s : soln) {
-            scronched_solns.push_back(scronch(s, x_s, y_s));
-        }
+        std::vector<std::complex<double>> scronched_solns = get_image_configurations(x_s, y_s);
 
         std::vector<double> mags(scronched_solns.size(), 1.0); // TODO: edit this to get magnifications
         std::vector<std::complex<double>> images;
@@ -169,6 +176,13 @@ private:
     }
 };
 
+
+std::vector<std::complex<double>> get_quad_configuration(double x_s, double y_s, double b, double eps, double gamma, double x_g, double y_g, double eps_theta, double gamma_theta=0.0) {
+    SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, eps_theta, gamma_theta);
+    std::vector<std::complex<double>> image_conf = pot.get_image_configurations(x_s, y_s);
+    return image_conf;
+}
+
 int main() {
     double b = 1.133513e00;
     double x_g = -3.830000e-01;
@@ -181,11 +195,17 @@ int main() {
     double y_s = -1.179477e00;
 
     SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, eps_theta);
-    std::unordered_map<std::string, double> image_conf = pot.get_image_configuration(x_s, y_s);
+    std::unordered_map<std::string, double> image_conf = pot.get_image_and_mag_configuration(x_s, y_s);
 
     for (const auto& pair : image_conf) {
         std::cout << pair.first << ": " << pair.second << std::endl;
     }
+
+    // std::vector<std::complex<double>> image_conf = get_quad_configuration(x_s, y_s, b, eps, gamma, x_g, y_g, eps_theta);
+    // for (const auto& pair : image_conf) {
+    //     std::cout << pair.real() << ", " << pair.imag() << std::endl;
+    // }
+
 
     return 0;
 }
