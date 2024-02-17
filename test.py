@@ -1,5 +1,5 @@
 from quartic_solver import get_ACLE_angular_solns
-from SIEP_XS import SIEP_plus_XS
+from np_potentials import SIEP_plus_XS
 # from potentials import SIEP_plus_XS
 import pytest
 import os

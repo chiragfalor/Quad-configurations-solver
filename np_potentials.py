@@ -98,9 +98,10 @@ class SIEP_plus_XS:
 
     def double_grad_pot(self, x: np.float64, y: np.float64) -> Tuple[np.float64, np.float64, np.float64]:
         t = np.sqrt(x**2 + y**2 / (1 - self.eps) ** 2)
-        D_xx = self.b*y**2/(t**3 * (1 - self.eps)**2) - self.gamma
-        D_yy = self.b*x**2/(t**3 * (1 - self.eps)**2) + self.gamma
-        D_xy = -self.b*x*y/(t**3 * (1 - self.eps)**2)
+        f = self.b / (t**3 * (1 - self.eps)**2)
+        D_xx = f*y**2 - self.gamma
+        D_yy = f*x**2 + self.gamma
+        D_xy = -f*x*y
         return D_xx, D_yy, D_xy
 
     def standardize(
