@@ -119,6 +119,24 @@ public:
         return image_configurations;
     }
 
+    tuple<double, double, double> double_grad_pot(double x, double y) {
+        double t = pow((x*x + y*y/(pow(1-eps, 2))), 0.5);
+        double f = b / (pow(t, 3) * pow(1-eps, 2));
+        double D_xx = f*y*y - gamma;
+        double D_yy = f*x*x + gamma;
+        double D_xy = -f*x*y;
+        return make_tuple(D_xx, D_yy, D_xy);
+    }
+
+    double soln_to_magnification(complex<double> scronched_soln) {
+        double x = scronched_soln.real();
+        double y = scronched_soln.imag();
+        double D_xx, D_yy, D_xy;
+        tie(D_xx, D_yy, D_xy) = double_grad_pot(x, y);
+        double mu_inv = (1 - D_xx) * (1 - D_yy) - pow(D_xy, 2);
+        return 1 / mu_inv;
+    }
+
     unordered_map<string, double> get_image_and_mag_configuration(double x_s, double y_s) {
         unordered_map<string, double> image_conf;
         image_conf["b"] = b;
@@ -133,11 +151,12 @@ public:
 
         vector<complex<double>> scronched_solns = get_image_configurations(x_s, y_s);
 
-        vector<double> mags(scronched_solns.size(), 1.0); // TODO: edit this to get magnifications
+        vector<double> mags;
         vector<complex<double>> images;
         for (const auto& s : scronched_solns) {
             complex<double> image = destandardize(s.real(), s.imag());
             images.push_back(image);
+            mags.push_back(soln_to_magnification(s));
         }
 
         for (size_t i = 0; i < images.size(); i++) {
