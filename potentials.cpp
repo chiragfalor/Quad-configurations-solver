@@ -137,35 +137,18 @@ public:
         return 1 / mu_inv;
     }
 
-    unordered_map<string, double> get_image_and_mag_configuration(double x_s, double y_s) {
-        unordered_map<string, double> image_conf;
-        image_conf["b"] = b;
-        image_conf["eps"] = eps;
-        image_conf["gamma"] = gamma;
-        image_conf["x_g"] = x_g;
-        image_conf["y_g"] = y_g;
-        image_conf["eps_theta"] = eps_theta;
-        image_conf["gamma_theta"] = gamma_theta;
-        image_conf["x_s"] = x_s;
-        image_conf["y_s"] = y_s;
-
+    tuple<vector<complex<double>>, vector<double>> get_image_and_mags(double x_s, double y_s) {
         vector<complex<double>> scronched_solns = get_image_configurations(x_s, y_s);
 
-        vector<double> mags;
         vector<complex<double>> images;
+        vector<double> mags;
         for (const auto& s : scronched_solns) {
             complex<double> image = destandardize(s.real(), s.imag());
             images.push_back(image);
             mags.push_back(soln_to_magnification(s));
         }
 
-        for (size_t i = 0; i < images.size(); i++) {
-            image_conf["x_" + to_string(i+1)] = images[i].real();
-            image_conf["y_" + to_string(i+1)] = images[i].imag();
-            image_conf["mu_" + to_string(i+1)] = mags[i];
-        }
-
-        return image_conf;
+        return make_tuple(images, mags);
     }
 
 private:
@@ -198,10 +181,11 @@ private:
 };
 
 
-vector<complex<double>> get_quad_configuration(double x_s, double y_s, double b, double eps, double gamma, double x_g, double y_g, double eps_theta, double gamma_theta=0.0) {
+tuple<vector<complex<double>>, vector<double>> get_images_and_mags(double x_s, double y_s, double b, double eps, double gamma, double x_g, double y_g, double eps_theta, double gamma_theta=0.0) {
     SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, eps_theta, gamma_theta);
-    vector<complex<double>> image_conf = pot.get_image_configurations(x_s, y_s);
-    return image_conf;
+    return pot.get_image_and_mags(x_s, y_s);
+    // vector<complex<double>> image_conf = pot.get_image_configurations(x_s, y_s);
+    // return image_conf;
 }
 
 int main() {
@@ -216,14 +200,17 @@ int main() {
     double x_s = -3.899678e-01;
     double y_s = -1.179477e00;
 
-    SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, eps_theta);
+    // SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, eps_theta);
+    vector<complex<double>> images;
+    vector<double> mags;
     start = clock();
-    unordered_map<string, double> image_conf = pot.get_image_and_mag_configuration(x_s, y_s);
+    tie(images, mags) = get_images_and_mags(x_s, y_s, b, eps, gamma, x_g, y_g, eps_theta);
     end = clock();
+    cout << "id " << "x " << "y " << "mag " << endl;
 
-    for (const auto& pair : image_conf) {
-        cout << pair.first << ": " << pair.second << endl;
-    }
+    for (size_t i = 0; i < images.size(); i++) {
+            cout << i+1 << " " << images[i].real() << " " << images[i].imag() << " " << mags[i] << endl;
+        }
 
     cout << "Execution time: " << fixed << setprecision(6) << ( 1e3 * (end - start) / CLOCKS_PER_SEC ) << " ms" <<endl;
 
