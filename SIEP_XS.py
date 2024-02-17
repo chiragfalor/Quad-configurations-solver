@@ -10,7 +10,7 @@ def rotate(
     center: np.ndarray = np.array([0, 0]),
 ) -> Tuple[np.float64, np.float64]:
     """
-    Rotate a point clockwise by a given angle around a given origin.
+    Rotate a point counterclockwise by a given angle around a given origin.
     The angle should be given in degrees.
 
     Parameters
@@ -83,6 +83,26 @@ class SIEP_plus_XS:
             x**2 + y**2 / (1 - eps) ** 2
         ) - gamma / 2 * (x**2 - y**2)
 
+
+    # def d2pot_dxdy(self, x: np.float64, y: np.float64) -> np.float64:
+    #     t = np.sqrt(x**2 + y**2 / (1 - self.eps) ** 2)
+    #     return -self.b*x*y/(t**3 * (1 - self.eps)**2)
+
+    # def d2pot_dx2(self, x: np.float64, y: np.float64) -> np.float64:
+    #     t = np.sqrt(x**2 + y**2 / (1 - self.eps) ** 2)
+    #     return self.b*y**2/(t**3 * (1 - self.eps)**2) - self.gamma
+
+    # def d2pot_dy2(self, x: np.float64, y: np.float64) -> np.float64:
+    #     t = np.sqrt(x**2 + y**2 / (1 - self.eps) ** 2)
+    #     return self.b*x**2/t**3 + self.gamma
+
+    def double_grad_pot(self, x: np.float64, y: np.float64) -> Tuple[np.float64, np.float64, np.float64]:
+        t = np.sqrt(x**2 + y**2 / (1 - self.eps) ** 2)
+        D_xx = self.b*y**2/(t**3 * (1 - self.eps)**2) - self.gamma
+        D_yy = self.b*x**2/(t**3 * (1 - self.eps)**2) + self.gamma
+        D_xy = -self.b*x*y/(t**3 * (1 - self.eps)**2)
+        return D_xx, D_yy, D_xy
+
     def standardize(
         self, x: np.float64, y: np.float64
     ) -> Tuple[np.float64, np.float64]:
@@ -132,13 +152,20 @@ class SIEP_plus_XS:
         solns = self.get_angular_solns(x_s, y_s)
         scronched_solns = [self.scronch(s, x_s, y_s) for s in solns]
 
-        # mags = [self.soln_to_magnification(soln) for soln in scronched_solns]
-        mags = [np.array(1.0) for soln in scronched_solns]  # no magnification for numpy
+        mags = [self.soln_to_magnification(soln) for soln in scronched_solns]
+        # mags = [np.array(1.0) for soln in scronched_solns]  # no magnification for numpy
 
         images = [self.destandardize(s.real, s.imag) for s in scronched_solns]
         images = [x[0] + 1j * x[1] for x in images]
 
         return images, mags
+
+    def soln_to_magnification(self, scronched_soln: np.complex128) -> np.float64:
+        x, y = scronched_soln.real, scronched_soln.imag
+        D_xx, D_yy, D_xy = self.double_grad_pot(x, y)
+        mu_inv = (1 - D_xx)*(1 - D_yy) - D_xy**2
+        return 1/mu_inv
+
 
     def get_image_configuration(
         self, x_s: np.float64, y_s: np.float64
