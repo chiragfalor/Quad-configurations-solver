@@ -2,9 +2,13 @@
 #include <cmath>
 #include <complex>
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <vector>
 #include <unordered_map>
+#include <string>
 #include <iomanip>
+#include <cassert>
 
 
 using namespace std;
@@ -137,7 +141,7 @@ public:
         return 1 / mu_inv;
     }
 
-    tuple<vector<complex<double>>, vector<double>> get_image_and_mags(double x_s, double y_s) {
+    tuple<vector<complex<double>>, vector<double>> get_image_and_mags(double x_s, double y_s, bool computeMagnification=true) {
         vector<complex<double>> scronched_solns = get_image_configurations(x_s, y_s);
 
         vector<complex<double>> images;
@@ -145,7 +149,7 @@ public:
         for (const auto& s : scronched_solns) {
             complex<double> image = destandardize(s.real(), s.imag());
             images.push_back(image);
-            mags.push_back(soln_to_magnification(s));
+            mags.push_back(computeMagnification ? soln_to_magnification(s) : 0.0);
         }
 
         return make_tuple(images, mags);
@@ -181,44 +185,258 @@ private:
 };
 
 
-tuple<vector<complex<double>>, vector<double>> get_images_and_mags(double x_s, double y_s, double b, double eps, double gamma, double x_g, double y_g, double eps_theta, double gamma_theta=0.0) {
-    SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, eps_theta, gamma_theta);
-    return pot.get_image_and_mags(x_s, y_s);
-    // vector<complex<double>> image_conf = pot.get_image_configurations(x_s, y_s);
-    // return image_conf;
+tuple<vector<complex<double>>, vector<double>> get_images_and_mags(double x_s, double y_s, double b, double eps, double gamma, double x_g, double y_g, double theta, bool computeMagnification=true) {
+    SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, theta);
+    return pot.get_image_and_mags(x_s, y_s, computeMagnification);
 }
 
-int main() {
-    clock_t start, end;
-    double b = 1.133513e00;
-    double x_g = -3.830000e-01;
-    double y_g = -1.345000e00;
-    double eps = 3.520036e-01;
-    double eps_theta = 6.638131e01 + 90;
-    double gamma = 0.000000e00;
 
-    double x_s = -3.899678e-01;
-    double y_s = -1.179477e00;
+void generate_image_configurations_from_CSV(const string& inputFile, ostream& output, bool computeMagnification=true, bool verbose=false) {
+    ifstream inFile(inputFile);
+    // ofstream outFile(outputFile);
 
-    // SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, eps_theta);
+    if (!inFile.is_open()) {
+        cerr << "Error opening file: " << inputFile << endl;
+        return;
+    }
+
+    vector<vector<double>> input_configurations;
+
+    
+    string header;
+    getline(inFile, header);
+    assert(header == "b,x_g,y_g,eps,gamma,theta,x_s,y_s");
+
+    string line;
+    while (getline(inFile, line)) {
+        stringstream ss(line);
+        double value;
+        vector<double> conf;
+        while (ss >> value) {
+            conf.push_back(value);
+            if (ss.peek() == ',')
+                ss.ignore();
+        }
+        assert(conf.size() == 8);
+        input_configurations.push_back(conf);
+    }   
+    inFile.close();
+    // output to the output file
     vector<complex<double>> images;
     vector<double> mags;
-    start = clock();
-    tie(images, mags) = get_images_and_mags(x_s, y_s, b, eps, gamma, x_g, y_g, eps_theta);
-    end = clock();
-    cout << "id " << "x " << "y " << "mag " << endl;
+    if (verbose) {
+        output << "b,x_g,y_g,eps,gamma,theta,x_g,y_g,";
+    }
+    output << "x_1,y_1,mu_1,x_2,y_2,mu_2,x_3, y_3,mu_3,x_4,y_4,mu_4" << endl;
+    for (const auto& conf : input_configurations) {
+        double x_s = conf[6], y_s = conf[7], b = conf[0], eps = conf[3], gamma = conf[4], x_g = conf[1], y_g = conf[2], theta = conf[5];
+        tie(images, mags) = get_images_and_mags(x_s, y_s, b, eps, gamma, x_g, y_g, theta);
+        // Write the results to the output file
+        if (verbose) {
+            output << b << "," << x_g << "," << y_g << "," << eps << "," << gamma << "," << theta << "," << x_g << "," << y_g << ",";
+        } 
+        size_t num_images = images.size();
+        for (size_t i = 0; i < 4; ++i) {
+            if (i < num_images) {
+                output << images[i].real() << "," << images[i].imag() << "," << mags[i];
+            } else {
+                output << ",,"; // Extra commas for fewer images
+            }
+            if (i < 3)
+                output << ",";
+        }
+        output << endl;
+    }
+    return;
+}
 
-    for (size_t i = 0; i < images.size(); i++) {
-            cout << i+1 << " " << images[i].real() << " " << images[i].imag() << " " << mags[i] << endl;
+// int main() {
+//     clock_t start, end;
+//     // input is in input/debug1.csv
+//     string inputFile = "input/debug1.csv";
+//     string outputFile = "output/debug1.csv";
+//     generate_image_configurations_from_CSV(inputFile, outputFile);
+//     // return 0;
+//     // double b = 1.133513e00;
+//     // double x_g = -3.830000e-01;
+//     // double y_g = -1.345000e00;
+//     // double eps = 3.520036e-01;
+//     // double eps_theta = 6.638131e01 + 90;
+//     // double gamma = 0.000000e00;
+
+//     // double x_s = -3.899678e-01;
+//     // double y_s = -1.179477e00;
+
+//     // // SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, eps_theta);
+//     // vector<complex<double>> images;
+//     // vector<double> mags;
+//     // start = clock();
+//     // tie(images, mags) = get_images_and_mags(x_s, y_s, b, eps, gamma, x_g, y_g, eps_theta);
+//     // end = clock();
+//     // cout << "id " << "x " << "y " << "mag " << endl;
+
+//     // for (size_t i = 0; i < images.size(); i++) {
+//     //         cout << i+1 << " " << images[i].real() << " " << images[i].imag() << " " << mags[i] << endl;
+//     //     }
+
+//     // cout << "Execution time: " << fixed << setprecision(6) << ( 1e3 * (end - start) / CLOCKS_PER_SEC ) << " ms" <<endl;
+
+//     // // vector<complex<double>> image_conf = get_quad_configuration(x_s, y_s, b, eps, gamma, x_g, y_g, eps_theta);
+//     // // for (const auto& pair : image_conf) {
+//     // //     cout << pair.real() << ", " << pair.imag() << endl;
+//     // // }
+
+
+//     return 0;
+// }
+
+namespace run_options {
+
+    void parse(int argc, char* argv[]);
+    void print_help();
+
+    string input_file;
+    double b, x_g, y_g, eps, gamma, theta, x_s, y_s;
+
+    string output_file;
+
+
+    bool one_conf;
+    bool computeMagnification = true;
+    bool verbose;
+    bool out_to_file;
+
+}
+
+void run_options::parse(int argc, char* argv[]) {
+    if (argc < 2) {
+        print_help();
+        exit(1);
+    }
+
+    for (int i = 1; i < argc; i++) {
+        string arg = argv[i];
+        if (arg == "-h" || arg == "--help") {
+            print_help();
+            exit(0);
+        } else if (arg == "-c" || arg == "--conf") {
+            if (i + 8 < argc) {
+                one_conf = true;
+                b = atof(argv[++i]);
+                x_g = atof(argv[++i]);
+                y_g = atof(argv[++i]);
+                eps = atof(argv[++i]);
+                gamma = atof(argv[++i]);
+                theta = atof(argv[++i]);
+                x_s = atof(argv[++i]);
+                y_s = atof(argv[++i]);
+            } else {
+                cerr << "Error: -c option requires 8 floating point arguments: b x_g y_g eps gamma theta x_s y_s." << endl;
+                exit(1);
+            }
+        } else if (arg == "-o" || arg == "--output") {
+            if (i + 1 < argc) {
+                out_to_file = true;
+                output_file = argv[i + 1];
+                i++;
+            } else {
+                cerr << "Error: -o option requires one argument." << endl;
+                exit(1);
+            }
+        } else if (arg == "-v" || arg == "--verbose") {
+            verbose = true;
+        } else if (arg == "-n" || arg == "--nomag") {
+            computeMagnification = false;
+        } // else check if the file name has been provided
+        else if (i == argc - 1) {
+            input_file = argv[i];
+        } else {
+            cerr << "Error: unknown option " << arg << endl;
+            exit(1);
+        }
+    }
+}
+
+void run_options::print_help() {
+    cerr << "Usage: " << "potentials" << " [-n] [-o output.csv] [-v] input.csv" << endl;
+    cerr << "Usage:./potentials -c b,x_g,y_g,eps,gamma,theta,x_s,y_s [-o output_file] [-v] [-n]" << endl;
+    cerr << "Options:" << endl;
+    cerr << "  -h, --help: print this help message" << endl;
+    cerr << "  -c, --conf: calculate for a single configuration" << endl;
+    cerr << "  -o, --output FILE: write the output to the specified FILE" << endl;
+    cerr << "  -v, --verbose: Print the model parameters in addition to the image positions and magnification and the execution time" << endl;
+    cerr << "  -n, --nomag: don't calculate magnifications" << endl;
+
+    exit(1);
+    return;
+}
+
+streambuf *original_cout_buffer;
+
+void restore_cout_buffer() {
+    cout.rdbuf(original_cout_buffer);
+}
+
+int main(int argc, char* argv[]) {
+    run_options::parse(argc, argv);
+    
+    clock_t start, end;
+
+    if (run_options::verbose) {
+        start = clock();
+        
+    }
+
+    ostream& output = cout;
+    ofstream file_output;
+
+    if (run_options::out_to_file) {
+    if (!run_options::output_file.empty()) {
+        file_output.open(run_options::output_file);
+        if (file_output.is_open()) {
+            original_cout_buffer = cout.rdbuf();
+            output.rdbuf(file_output.rdbuf()); // Redirect output to the file
+        } else {
+            cerr << "Error opening output file " << run_options::output_file << endl;
+            exit(1);
+        }
+    } else {
+        cerr << "Error: No output file specified." << endl;
+        exit(1);
+    }
+}
+
+    if (run_options::one_conf) {
+        if (run_options::verbose) {
+            cout << "Running " << run_options::x_s << " " << run_options::y_s << " " << run_options::b << " " << run_options::eps << " " << run_options::gamma << " " << run_options::theta << " " << run_options::x_g << " " << run_options::y_g << endl;
         }
 
-    cout << "Execution time: " << fixed << setprecision(6) << ( 1e3 * (end - start) / CLOCKS_PER_SEC ) << " ms" <<endl;
+        vector<complex<double>> images;
+        vector<double> mags;
+        tie(images, mags) = get_images_and_mags(run_options::x_s, run_options::y_s, run_options::b, run_options::eps, run_options::gamma, run_options::x_g, run_options::y_g, run_options::theta, run_options::computeMagnification);
+        
+        output << "id " << "x " << "y " << "mag " << endl;
 
-    // vector<complex<double>> image_conf = get_quad_configuration(x_s, y_s, b, eps, gamma, x_g, y_g, eps_theta);
-    // for (const auto& pair : image_conf) {
-    //     cout << pair.real() << ", " << pair.imag() << endl;
-    // }
+        for (size_t i = 0; i < images.size(); i++) {
+            output << i+1 << " " << images[i].real() << " " << images[i].imag() << " " << mags[i] << endl;
+        }
+    } else {
+        generate_image_configurations_from_CSV(run_options::input_file, output, run_options::computeMagnification, run_options::verbose);
 
 
-    return 0;
+    }
+
+            
+    if (file_output.is_open()) {
+        // redirect the output back to stdout
+        restore_cout_buffer();
+        file_output.close();
+    }
+
+
+    if (run_options::verbose) {
+        end = clock();
+        cout << "Execution completed successfully." << endl;
+        cout << "Execution time: " << fixed << setprecision(6) << ( 1e3 * (end - start) / CLOCKS_PER_SEC ) << " ms" <<endl;
+    }
 }

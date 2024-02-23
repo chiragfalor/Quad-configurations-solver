@@ -340,3 +340,7 @@ TSWLatexianTemp*
 # debug files
 *.pdb
 *.ilk
+
+
+input/*
+output/*
