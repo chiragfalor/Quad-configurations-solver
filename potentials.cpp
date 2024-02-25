@@ -320,12 +320,12 @@ void run_options::parse(int argc, char* argv[]) {
 
 void run_options::print_help() {
     cerr << "Usage: " << "potentials" << " [-n] [-o output.csv] [-v] input.csv" << endl;
-    cerr << "Usage:./potentials -c b,x_g,y_g,eps,gamma,theta,x_s,y_s [-o output_file] [-v] [-n]" << endl;
+    cerr << "Usage:./potentials -c b x_g y_g eps gamma theta x_s y_s [-o output_file] [-v] [-n]" << endl;
     cerr << "Options:" << endl;
     cerr << "  -h, --help: print this help message" << endl;
     cerr << "  -c, --conf: calculate for a single configuration" << endl;
     cerr << "  -o, --output FILE: write the output to the specified FILE" << endl;
-    cerr << "  -v, --verbose: Print the model parameters in addition to the image positions and magnification and the execution time" << endl;
+    cerr << "  -v, --verbose: Output the model parameters in addition to the image configuration" << endl;
     cerr << "  -n, --nomag: don't calculate magnifications" << endl;
 
     exit(1);
