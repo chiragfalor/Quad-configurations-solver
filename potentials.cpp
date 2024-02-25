@@ -250,45 +250,6 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
     return;
 }
 
-// int main() {
-//     clock_t start, end;
-//     // input is in input/debug1.csv
-//     string inputFile = "input/debug1.csv";
-//     string outputFile = "output/debug1.csv";
-//     generate_image_configurations_from_CSV(inputFile, outputFile);
-//     // return 0;
-//     // double b = 1.133513e00;
-//     // double x_g = -3.830000e-01;
-//     // double y_g = -1.345000e00;
-//     // double eps = 3.520036e-01;
-//     // double eps_theta = 6.638131e01 + 90;
-//     // double gamma = 0.000000e00;
-
-//     // double x_s = -3.899678e-01;
-//     // double y_s = -1.179477e00;
-
-//     // // SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, eps_theta);
-//     // vector<complex<double>> images;
-//     // vector<double> mags;
-//     // start = clock();
-//     // tie(images, mags) = get_images_and_mags(x_s, y_s, b, eps, gamma, x_g, y_g, eps_theta);
-//     // end = clock();
-//     // cout << "id " << "x " << "y " << "mag " << endl;
-
-//     // for (size_t i = 0; i < images.size(); i++) {
-//     //         cout << i+1 << " " << images[i].real() << " " << images[i].imag() << " " << mags[i] << endl;
-//     //     }
-
-//     // cout << "Execution time: " << fixed << setprecision(6) << ( 1e3 * (end - start) / CLOCKS_PER_SEC ) << " ms" <<endl;
-
-//     // // vector<complex<double>> image_conf = get_quad_configuration(x_s, y_s, b, eps, gamma, x_g, y_g, eps_theta);
-//     // // for (const auto& pair : image_conf) {
-//     // //     cout << pair.real() << ", " << pair.imag() << endl;
-//     // // }
-
-
-//     return 0;
-// }
 
 namespace run_options {
 
@@ -382,10 +343,9 @@ int main(int argc, char* argv[]) {
     
     clock_t start, end;
 
-    if (run_options::verbose) {
+    // if (run_options::verbose) {
         start = clock();
-        
-    }
+    // }
 
     ostream& output = cout;
     ofstream file_output;
@@ -434,9 +394,9 @@ int main(int argc, char* argv[]) {
     }
 
 
-    if (run_options::verbose) {
+    // if (run_options::verbose) {
         end = clock();
         cout << "Execution completed successfully." << endl;
         cout << "Execution time: " << fixed << setprecision(6) << ( 1e3 * (end - start) / CLOCKS_PER_SEC ) << " ms" <<endl;
-    }
+    // }
 }
