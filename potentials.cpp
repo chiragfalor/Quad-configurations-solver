@@ -227,7 +227,7 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
     if (verbose) {
         output << "b,x_g,y_g,eps,gamma,theta,x_g,y_g,";
     }
-    output << "x_1,y_1,mu_1,x_2,y_2,mu_2,x_3, y_3,mu_3,x_4,y_4,mu_4" << endl;
+    output << "x_1,y_1,mu_1,x_2,y_2,mu_2,x_3,y_3,mu_3,x_4,y_4,mu_4" << endl;
     for (const auto& conf : input_configurations) {
         double x_s = conf[6], y_s = conf[7], b = conf[0], eps = conf[3], gamma = conf[4], x_g = conf[1], y_g = conf[2], theta = conf[5];
         tie(images, mags) = get_images_and_mags(x_s, y_s, b, eps, gamma, x_g, y_g, theta);

@@ -1,6 +1,8 @@
 from quartic_solver import get_ACLE_angular_solns
 from np_potentials import SIEP_plus_XS
 # from potentials import SIEP_plus_XS
+
+import pandas as pd
 import pytest
 import os
 
@@ -20,12 +22,15 @@ def test_solve_quartic(W, expected):
 
 def config_to_set(config):
     """ Convert image configuration dictionary to a set of tuples for comparison. """
+    # check all values are numbers
+    config = {k: v for k, v in config.items() if isinstance(v, (int, float)) and v == v}
     return {
         (config[f'x_{i}'], config[f'y_{i}'], abs(config[f'mu_{i}'])) for i in range(1, 5) if f'x_{i}' in config
     }
 
 def config_to_nomag_set(config):
     """ Convert image configuration dictionary to a set of tuples for comparison. """
+    config = {k: v for k, v in config.items() if isinstance(v, (int, float)) and v == v}
     return {
         (config[f'x_{i}'], config[f'y_{i}']) for i in range(1, 5) if f'x_{i}' in config
     }
@@ -34,6 +39,7 @@ def eq_config(config1, config2, check_mag=True):
     """ Compare two image configurations. 
     The first configuration should be a subset of the second.
     """
+    # convert to sets for order-independent comparison
     if check_mag:
         config1_set = config_to_set(config1)
         config2_set = config_to_set(config2)
@@ -131,16 +137,43 @@ def load_configuration(file_path):
                                   for file in os.listdir('data/minimal_params/') 
                                   if ('out' in file) and 
                                   not 'cf6' in file]) # cf6 has unaligned shear and elliptcity 
-def test_trivial_param_files(file):
+def test_trivial_param_files_python(file):
     cf = load_configuration(file)
     expected_config = get_image_configuration(cf)
     assert eq_config(cf, expected_config), f"Test failed for file: {file}"
 
 @pytest.mark.parametrize("file", ['data/keeton_tests/' + file for file in os.listdir('data/keeton_tests/') if 'out' in file])
-def test_extensive_tests_files(file):
+def test_extensive_tests_files_python(file):
     cf = load_configuration(file)
     expected_config = get_image_configuration(cf)
     assert eq_config(cf, expected_config), f"Test failed for file: {file}"
+
+def test_cpp_model_on_all_files():
+    files = (['data/keeton_tests/' + file 
+            for file in os.listdir('data/keeton_tests/') 
+            if 'out' in file] + 
+            ['data/minimal_params/' + file 
+            for file in os.listdir('data/minimal_params/') 
+            if ('out' in file) and 
+            not 'cf6' in file])
+    configs = [load_configuration(file) for file in files]
+    df = pd.DataFrame(configs).rename(columns={"eps_theta":"theta"})
+    params_df = df[["b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"]]
+
+    params_df.to_csv("test.csv", index=False)
+    os.system("potentials -o test_output.csv test.csv")
+    cpp_output_df = pd.read_csv("test_output.csv")
+    os.remove("test.csv")
+    os.remove("test_output.csv")
+
+    expected_output_df = df[cpp_output_df.columns]
+    for i, cpp_row in cpp_output_df.iterrows():
+        expected = expected_output_df.iloc[i].to_dict()
+        cpp = cpp_row.to_dict()
+        assert eq_config(expected, cpp), f"File {files[i]}, Expected {expected} but got {cpp}"
+
+    
+
 
 
 if __name__ == "__main__":
