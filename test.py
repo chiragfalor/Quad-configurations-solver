@@ -158,7 +158,8 @@ def test_cpp_model_on_all_files():
             not 'cf6' in file])
     configs = [load_configuration(file) for file in files]
     df = pd.DataFrame(configs).rename(columns={"eps_theta":"theta"})
-    params_df = df[["b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"]]
+    params_list = ["b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"]
+    params_df = df[params_list]
 
     params_df.to_csv("test.csv", index=False)
     os.system("potentials -o test_output.csv test.csv")
@@ -166,6 +167,9 @@ def test_cpp_model_on_all_files():
     os.remove("test.csv")
     os.remove("test_output.csv")
 
+    image_col_names = [col for col in cpp_output_df.columns if col not in params_list] # ['x_1', 'y_1', 'mu_1', 'x_2', 'y_2', 'mu_2', 'x_3', 'y_3', 'mu_3', 'x_4', 'y_4', 'mu_4']
+
+    cpp_output_df = cpp_output_df[image_col_names]
     expected_output_df = df[cpp_output_df.columns]
     for i, cpp_row in cpp_output_df.iterrows():
         expected = expected_output_df.iloc[i].to_dict()

@@ -17,6 +17,7 @@ using namespace std;
 #define M_PI 3.14159265358979323846
 #endif
 
+#define COUT_PRECISION 16
 
 complex<double> _get_quartic_solution(complex<double> W, int pm1 = +1, int pm2 = +1) {
     auto isclose = [](complex<double> a, complex<double> b, double rel_tol = 1e-09, double abs_tol = 1e-8) {
@@ -191,7 +192,7 @@ tuple<vector<complex<double>>, vector<double>> get_images_and_mags(double x_s, d
 }
 
 
-void generate_image_configurations_from_CSV(const string& inputFile, ostream& output, bool computeMagnification=true, bool verbose=false) {
+void generate_image_configurations_from_CSV(const string& inputFile, ostream& output, bool computeMagnification=true) {
     ifstream inFile(inputFile);
     // ofstream outFile(outputFile);
 
@@ -224,17 +225,14 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
     // output to the output file
     vector<complex<double>> images;
     vector<double> mags;
-    if (verbose) {
-        output << "b,x_g,y_g,eps,gamma,theta,x_g,y_g,";
-    }
+    output << "b,x_g,y_g,eps,gamma,theta,x_s,y_s,";
     output << "x_1,y_1,mu_1,x_2,y_2,mu_2,x_3,y_3,mu_3,x_4,y_4,mu_4" << endl;
+    output << scientific << showpos << setprecision(16);
     for (const auto& conf : input_configurations) {
         double x_s = conf[6], y_s = conf[7], b = conf[0], eps = conf[3], gamma = conf[4], x_g = conf[1], y_g = conf[2], theta = conf[5];
         tie(images, mags) = get_images_and_mags(x_s, y_s, b, eps, gamma, x_g, y_g, theta);
         // Write the results to the output file
-        if (verbose) {
-            output << b << "," << x_g << "," << y_g << "," << eps << "," << gamma << "," << theta << "," << x_g << "," << y_g << ",";
-        } 
+        output << b << "," << x_g << "," << y_g << "," << eps << "," << gamma << "," << theta << "," << x_s << "," << y_s << ",";
         size_t num_images = images.size();
         for (size_t i = 0; i < 4; ++i) {
             if (i < num_images) {
@@ -264,7 +262,6 @@ namespace run_options {
 
     bool one_conf;
     bool computeMagnification = true;
-    bool verbose;
     bool out_to_file;
 
 }
@@ -304,8 +301,6 @@ void run_options::parse(int argc, char* argv[]) {
                 cerr << "Error: -o option requires one argument." << endl;
                 exit(1);
             }
-        } else if (arg == "-v" || arg == "--verbose") {
-            verbose = true;
         } else if (arg == "-n" || arg == "--nomag") {
             computeMagnification = false;
         } // else check if the file name has been provided
@@ -325,9 +320,10 @@ void run_options::print_help() {
     cerr << "  -h, --help: print this help message" << endl;
     cerr << "  -c, --conf: calculate for a single configuration" << endl;
     cerr << "  -o, --output FILE: write the output to the specified FILE" << endl;
-    cerr << "  -v, --verbose: Output the model parameters in addition to the image configuration" << endl;
     cerr << "  -n, --nomag: don't calculate magnifications" << endl;
-
+    cerr << endl;
+    cerr << "Input CSV format:" << endl;
+    cerr << "b,x_g,y_g,eps,gamma,theta,x_s,y_s" << endl;
     exit(1);
     return;
 }
@@ -343,9 +339,7 @@ int main(int argc, char* argv[]) {
     
     clock_t start, end;
 
-    // if (run_options::verbose) {
-        start = clock();
-    // }
+    start = clock();
 
     ostream& output = cout;
     ofstream file_output;
@@ -367,21 +361,24 @@ int main(int argc, char* argv[]) {
 }
 
     if (run_options::one_conf) {
-        if (run_options::verbose) {
-            cout << "Running " << run_options::x_s << " " << run_options::y_s << " " << run_options::b << " " << run_options::eps << " " << run_options::gamma << " " << run_options::theta << " " << run_options::x_g << " " << run_options::y_g << endl;
-        }
+        cout << "Running:";
+        cout << " b=" << run_options::b << " x_g=" << run_options::x_g << " y_g=" << run_options::y_g << " eps=" << run_options::eps << " gamma=" << run_options::gamma << " theta=" << run_options::theta << " x_s=" << run_options::x_s << " y_s=" << run_options::y_s << endl;
 
         vector<complex<double>> images;
         vector<double> mags;
         tie(images, mags) = get_images_and_mags(run_options::x_s, run_options::y_s, run_options::b, run_options::eps, run_options::gamma, run_options::x_g, run_options::y_g, run_options::theta, run_options::computeMagnification);
         
-        output << "id " << "x " << "y " << "mag " << endl;
+        output << "id" << setw(COUT_PRECISION+8) <<  "x" << setw(COUT_PRECISION+8) << "y" << setw(COUT_PRECISION+8) << "mu" << endl;
 
+        output << scientific << showpos << setprecision(16);
         for (size_t i = 0; i < images.size(); i++) {
-            output << i+1 << " " << images[i].real() << " " << images[i].imag() << " " << mags[i] << endl;
+            output << setw(2) << (i+1);
+            output << setw(COUT_PRECISION+8) << images[i].real();
+            output << setw(COUT_PRECISION+8) << images[i].imag();
+            output << setw(COUT_PRECISION+8) << mags[i] << endl;
         }
     } else {
-        generate_image_configurations_from_CSV(run_options::input_file, output, run_options::computeMagnification, run_options::verbose);
+        generate_image_configurations_from_CSV(run_options::input_file, output, run_options::computeMagnification);
 
 
     }
@@ -394,9 +391,8 @@ int main(int argc, char* argv[]) {
     }
 
 
-    // if (run_options::verbose) {
-        end = clock();
-        cout << "Execution completed successfully." << endl;
-        cout << "Execution time: " << fixed << setprecision(6) << ( 1e3 * (end - start) / CLOCKS_PER_SEC ) << " ms" <<endl;
-    // }
+    end = clock();
+    cout << "Execution completed successfully." << endl;
+    cout << "Execution time: " << noshowpos << fixed << setprecision(6) << ( 1e3 * (end - start) / CLOCKS_PER_SEC ) << " ms" <<endl;
+
 }
