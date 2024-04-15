@@ -1,0 +1,48 @@
+> Setting chimode = 0.000000e+00
+> Setting shrcoords = 2.000000e+00
+> Setting optmode = 2.000000e+00
+> Setting checkparity = 0.000000e+00
+> Reading lens data from file j0457png.dat
+Setting rscale = 5.597321e+01
+> Enter galaxies for model #1:
+Enter what to vary for each galaxy:
+> Opened output file: chitmp.dat
+  Note: before powell, p and xi matrix:
+    1.0000        0.5597    0.0000    0.0000
+    0.0000        0.0000    0.0100    0.0000
+    0.0000        0.0000    0.0000    1.0000
+  Optimization 1/1:   13 func evals, chisq 1.099456e-03
+LENS PARMS:
+   alpha 3.113703e+01 0.0 0.0 0.0 0.0 4.240785e-01 -5.881902e+01 0.0 0.0 1.000000e+00
+SOURCE PARMS:
+   ptsrc 2.057184e-01 2.716241e+01 1.546294e+01 0.0 0.0 0.0 0.0 0.0
+CHISQ: 1.099456e-03 1.085697e-03 1.375942e-05 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 0.000000e+00 # tot pos flux tdel gal plim crv ring weak
+
+Source #1
+  posn:  2.716241e+01  1.546294e+01
+  flux:  2.057184e-01
+     h:  7.000000e-01
+tscale:  1.000000e+00
+images:
+   0.0000   0.0000 (1.0e+00)   0.0100 ( 1.00e+02)   0.00 (0.0e+00) ->  -0.0002  -0.0001   0.0000 2073.6499
+  14.0000  50.0000 (1.0e+00)   1.0000 ( 1.00e+02)   0.00 (0.0e+00) ->  14.0112  50.0227   1.0057  94.0008
+  34.0000  28.0000 (1.0e+00)   1.0000 ( 1.00e+02)   0.00 (0.0e+00) ->  33.9875  28.0020   1.1806 125.5873
+  53.0000 -18.0000 (1.0e+00)   1.0000 ( 1.00e+02)   0.00 (0.0e+00) ->  52.9833 -17.9976   0.6762   0.0000
+
+
+Writing startup file to best.start
+Opened output file: best-chi.dat
+> kapgam output:  index  x  y  kappa  gamma  theta
+Re-running model 1/1
+Opened output file: chitmp.dat
+  Note: before powell, p and xi matrix:
+   31.1370        0.5597    0.0000    0.0000
+    0.4241        0.0000    0.0100    0.0000
+  -58.8190        0.0000    0.0000    1.0000
+  Optimization 1/1:    1 func evals, chisq 1.099456e-03
+source #1
+ 1 -1.744717e-04 -9.932282e-05  6.941284e+04  2.660397e+04 -6.034809e+01
+ 2  1.401123e+01  5.002273e+01  2.996945e-01  5.346687e-01 -4.181254e+01
+ 3  3.398752e+01  2.800199e+01  3.535320e-01  7.695241e-01 -5.504643e+01
+ 4  5.298334e+01 -1.799764e+01  2.782244e-01  4.655510e-01 -7.685314e+01
+>
