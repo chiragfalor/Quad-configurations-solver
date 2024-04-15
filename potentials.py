@@ -1,4 +1,4 @@
-from quartic_solver import _get_quartic_solution
+from torch_quartic_solver import _get_quartic_solution
 import torch
 
 def rotate(x, y, theta, center=torch.tensor((0, 0))):

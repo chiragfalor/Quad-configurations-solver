@@ -1,0 +1,15 @@
+> Enter galaxies for model #1:
+Enter what to vary for each galaxy:
+> Note: image search did not converge
+  source  4.000000e-02  1.000000e-01
+  tile   -1.594304e-02 -2.048362e-02
+  tile   -1.423399e-02 -2.181383e-02
+  tile    0.000000e+00  0.000000e+00
+findimg results:
+ 4.000000e-02  1.000000e-01  # source
+# 4 images:  x  y  mag  tdel
+ 3.062335e-01  1.503417e+00  1.839862e+00  0.000000e+00
+-1.836233e-01 -1.310734e+00  2.124914e+00  3.011502e-01
+ 9.773006e-01 -2.797694e-01  1.026598e+00  6.603277e-01
+-9.700193e-01  7.257941e-02  9.381782e-01  7.039187e-01
+> > 
