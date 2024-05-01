@@ -1,6 +1,6 @@
 from quartic_solver import get_ACLE_angular_solns
-from np_potentials import SIEP_plus_XS
-# from potentials import SIEP_plus_XS
+# from np_potentials import SIEP_plus_XS
+from potentials import SIEP_plus_XS
 
 import pandas as pd
 import pytest
@@ -91,6 +91,9 @@ def test_SIEP(b, eps, x_s, y_s, expected):
 
 
 def load_configuration(file_path):
+    '''
+    Give the path to a Keeton output .out file, this function will read the configuration and return a dictionary of the parameters and image configuration.
+    '''
     
     config = {}
 
@@ -100,6 +103,7 @@ def load_configuration(file_path):
     lines = [line.strip().split() for line in lines]
     
     image_start = None
+    source_line = None
     for i, line in enumerate(lines):
         if 'findimg' in line:
             source_line = lines[i+1]

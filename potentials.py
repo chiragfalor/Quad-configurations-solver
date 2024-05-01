@@ -55,7 +55,7 @@ class Potential:
     def destandardize(self, x, y):
         return x, y
     
-    def scronch(self, soln, **kwargs):
+    def scronch(self, soln, **kwargs) -> torch.Tensor:
         costheta, sintheta = soln.real, soln.imag
         (x_e, y_e), (x_a, y_a) = self._get_Wynne_ellipse_params(**kwargs)
         return x_e + x_a*costheta + 1j*(y_e + y_a*sintheta)
@@ -105,6 +105,7 @@ class Potential:
         kwargs = tensorize_dict(kwargs)
         soln = [self.get_soln(image_id=i, **kwargs) for i in range(4)]
         scronched_solns = [self.scronch(s, **kwargs) for s in soln]
+        scronched_solns = self.remove_the_lost_image(scronched_solns, **kwargs)
         
         mags = [self.soln_to_magnification(soln) for soln in scronched_solns]
 
@@ -163,12 +164,44 @@ class Potential:
         # take derivative of tensor y with respect to tensor x
         return torch.autograd.grad(y, [x], create_graph=True, retain_graph=True)[0]
     
+    def remove_the_lost_image(self, scronched_images, **kwargs):
+        # get hyperbola center
+        W = self.get_W(**kwargs)
+        (x_e, y_e), (x_a, y_a) = self._get_Wynne_ellipse_params(**kwargs)
+        x_h, y_h = W.real * x_a + x_e, W.imag * y_a + y_e
+
+        x_g, y_g = 0, 0 # in standardized coordinates, galaxy is at origin
+
+        g_angle = torch.atan2(y_g-y_h, x_g-x_h)
+        e_angle = torch.atan2(y_e-y_h, x_e-x_h)
+
+        
+        # assert that ellipse and galaxy angle should be in the same quadrant, as the hyperbola is right angle with asymptotes parallel to axes
+        assert g_angle // (torch.pi/2) == e_angle // (torch.pi/2)
+
+        images_angles = [torch.atan2(im.imag-y_h, im.real-x_h) for im in scronched_images]
+
+        # an image is lost if it is between the galaxy and center of ellipse on the hyperbola
+        lost_image = None
+        for i, angle in enumerate(images_angles):
+            if g_angle < angle < e_angle or g_angle > angle > e_angle:
+                lost_image = i
+                break
+
+        if lost_image is not None:
+            scronched_images.pop(lost_image)
+
+        return scronched_images
+
+    
 
 
 class SIEP_plus_XS(Potential):
     def __init__(self, b=0, eps=0, gamma=0, x_g=0, y_g=0, eps_theta=0, gamma_theta=None, **kwargs):
         # phi = b\sqrt{x^2 + y^2/(1-eps)^2} - gamma/2*(x^2 - y^2)
         self.gamma_theta = eps_theta if gamma_theta is None else gamma_theta
+        if abs(eps) < 1e-5:
+            eps_theta = self.gamma_theta
         # assert theta are close, we don't handle unparallel cases yet
         assert abs(self.gamma_theta - eps_theta) < 1e-3 or abs(gamma*eps) < 1e-10
         super().__init__(b=b, eps=eps, gamma=gamma, x_g=x_g, y_g=y_g, theta=eps_theta)
