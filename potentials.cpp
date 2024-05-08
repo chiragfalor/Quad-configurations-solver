@@ -65,10 +65,10 @@ vector<complex<double>> get_ACLE_angular_solns(complex<double> W) {
 
 class SIEP_plus_XS {
 private:
-    double b, eps, gamma, x_g, y_g, eps_theta, gamma_theta;
+    double b, eps, gamma, x_g, y_g, eps_theta, gamma_theta, x_s, y_s;
 
 public:
-    SIEP_plus_XS(double b = 1.0, double eps = 0.0, double gamma = 0.0, double x_g = 0.0, double y_g = 0.0, double eps_theta = 0.0, double gamma_theta = 0.0) {
+    SIEP_plus_XS(double b = 1.0, double eps = 0.0, double gamma = 0.0, double x_g = 0.0, double y_g = 0.0, double eps_theta = 0.0, double gamma_theta = 0.0, double x_s = 0.0, double y_s = 0.0) {
         this->b = b;
         this->eps = eps;
         this->gamma = gamma;
@@ -76,6 +76,8 @@ public:
         this->y_g = y_g;
         this->eps_theta = eps_theta;
         this->gamma_theta = (gamma_theta == 0.0) ? eps_theta : gamma_theta;
+        this->x_s = x_s;
+        this->y_s = y_s;
         
         // patch for circular case. TODO: better patch using some direct approximate solution when W is so big
         if (abs(this->eps) + abs(this->gamma) < 1e-8) {
@@ -100,11 +102,11 @@ public:
         return point + complex<double>(x_g, y_g);
     }
 
-    complex<double> scronch(complex<double> soln, double x_s, double y_s) {
+    complex<double> scronch(complex<double> soln) {
         double costheta = soln.real();
         double sintheta = soln.imag();
         // complex<double> point = standardize(x_s, y_s);
-        complex<double> ellipse_center = get_Wynne_ellipse_center(x_s, y_s);
+        complex<double> ellipse_center = get_Wynne_ellipse_center();
         double x_e = ellipse_center.real();
         double y_e = ellipse_center.imag();
         complex<double> ellipse_semiaxes = get_Wynne_ellipse_semiaxes();
@@ -113,12 +115,12 @@ public:
         return complex<double>(x_e + x_a * costheta, y_e + y_a * sintheta);
     }
 
-    vector<complex<double>> get_image_configurations(double x_s, double y_s) {
+    vector<complex<double>> get_image_configurations() {
         vector<complex<double>> image_configurations;
-        vector<complex<double>> solns = get_angular_solns(x_s, y_s);
+        vector<complex<double>> solns = get_angular_solns();
 
     for (complex<double> soln : solns) {
-            image_configurations.push_back(scronch(soln, x_s, y_s));
+            image_configurations.push_back(scronch(soln));
         }
 
         return image_configurations;
@@ -142,8 +144,8 @@ public:
         return 1 / mu_inv;
     }
 
-    tuple<vector<complex<double>>, vector<double>> get_image_and_mags(double x_s, double y_s, bool computeMagnification=true) {
-        vector<complex<double>> scronched_solns = get_image_configurations(x_s, y_s);
+    tuple<vector<complex<double>>, vector<double>> get_image_and_mags(bool computeMagnification=true) {
+        vector<complex<double>> scronched_solns = get_image_configurations();
 
         vector<complex<double>> images;
         vector<double> mags;
@@ -157,7 +159,7 @@ public:
     }
 
 private:
-    complex<double> get_Wynne_ellipse_center(double x_s, double y_s) {
+    complex<double> get_Wynne_ellipse_center() {
         complex<double> point = standardize(x_s, y_s);
         double x_e = point.real() / (1 + gamma);
         double y_e = point.imag() / (1 - gamma);
@@ -170,7 +172,7 @@ private:
         return complex<double>(x_a, y_a);
     }
 
-    complex<double> get_W(double x_s, double y_s) {
+    complex<double> get_W() {
         using namespace complex_literals;
         complex<double> point = standardize(x_s, y_s);
         double f = (1 - eps) / (b * (1 - pow(1 - eps, 2) * (1 - gamma) / (1 + gamma)));
@@ -178,17 +180,17 @@ private:
         return W;
     }
 
-    vector<complex<double>> get_angular_solns(double x_s, double y_s) {
-        complex<double> W = get_W(x_s, y_s);
+    vector<complex<double>> get_angular_solns() {
+        complex<double> W = get_W();
         vector<complex<double>> solns = get_ACLE_angular_solns(W);
         return solns;
     }
 };
 
 
-tuple<vector<complex<double>>, vector<double>> get_images_and_mags(double x_s, double y_s, double b, double eps, double gamma, double x_g, double y_g, double theta, bool computeMagnification=true) {
-    SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, theta);
-    return pot.get_image_and_mags(x_s, y_s, computeMagnification);
+tuple<vector<complex<double>>, vector<double>> get_images_and_mags(double b, double eps, double gamma, double x_g, double y_g, double theta,double x_s, double y_s, bool computeMagnification=true) {
+    SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, theta, theta, x_s, y_s);
+    return pot.get_image_and_mags(computeMagnification);
 }
 
 
@@ -230,7 +232,7 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
     output << scientific << showpos << setprecision(16);
     for (const auto& conf : input_configurations) {
         double x_s = conf[6], y_s = conf[7], b = conf[0], eps = conf[3], gamma = conf[4], x_g = conf[1], y_g = conf[2], theta = conf[5];
-        tie(images, mags) = get_images_and_mags(x_s, y_s, b, eps, gamma, x_g, y_g, theta);
+        tie(images, mags) = get_images_and_mags(b, eps, gamma, x_g, y_g, theta, x_s, y_s, computeMagnification);
         // Write the results to the output file
         output << b << "," << x_g << "," << y_g << "," << eps << "," << gamma << "," << theta << "," << x_s << "," << y_s << ",";
         size_t num_images = images.size();
@@ -366,7 +368,7 @@ int main(int argc, char* argv[]) {
 
         vector<complex<double>> images;
         vector<double> mags;
-        tie(images, mags) = get_images_and_mags(run_options::x_s, run_options::y_s, run_options::b, run_options::eps, run_options::gamma, run_options::x_g, run_options::y_g, run_options::theta, run_options::computeMagnification);
+        tie(images, mags) = get_images_and_mags(run_options::b, run_options::eps, run_options::gamma, run_options::x_g, run_options::y_g, run_options::theta, run_options::x_s, run_options::y_s, run_options::computeMagnification);
         
         output << "id" << setw(COUT_PRECISION+8) <<  "x" << setw(COUT_PRECISION+8) << "y" << setw(COUT_PRECISION+8) << "mu" << endl;
 
