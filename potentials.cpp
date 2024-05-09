@@ -19,6 +19,45 @@ using namespace std;
 
 #define COUT_PRECISION 16
 
+// Convert degrees to radians if needed
+double toRadians(double degrees) {
+    return degrees * M_PI / 180.0;
+}
+
+// // Structure to hold the coordinates
+class Point {
+public:
+    double x;
+    double y;
+    Point(double x = 0.0, double y = 0.0) : x(x), y(y) {}
+
+    Point operator+(const Point& other) const {
+        return Point(x + other.x, y + other.y);
+    }
+
+    Point operator-(const Point& other) const {
+        return Point(x - other.x, y - other.y);
+    }
+};
+
+// Function to rotate a point around a center by an angle theta (in degrees)
+Point rotate(Point point, double theta, Point center = {0.0, 0.0}) {
+    // Translate the point to the origin relative to the center
+    point = point - center;
+
+    // Convert the angle to radians
+    theta = toRadians(theta);
+
+    // Apply rotation matrix
+    double cosTheta = cos(theta);
+    double sinTheta = sin(theta);
+    Point rotatedPoint = {point.x * cosTheta - point.y * sinTheta, point.x * sinTheta + point.y * cosTheta};
+
+    // Translate back to the original center
+    return rotatedPoint + center;
+}
+
+
 complex<double> _get_quartic_solution(complex<double> W, int pm1 = +1, int pm2 = +1) {
     auto isclose = [](complex<double> a, complex<double> b, double rel_tol = 1e-09, double abs_tol = 1e-8) {
         return abs(a - b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol);
@@ -66,6 +105,7 @@ vector<complex<double>> get_ACLE_angular_solns(complex<double> W) {
 class SIEP_plus_XS {
 private:
     double b, eps, gamma, x_g, y_g, eps_theta, gamma_theta, x_s, y_s;
+    Point galaxy_center, source;
 
 public:
     SIEP_plus_XS(double b = 1.0, double eps = 0.0, double gamma = 0.0, double x_g = 0.0, double y_g = 0.0, double eps_theta = 0.0, double gamma_theta = 0.0, double x_s = 0.0, double y_s = 0.0) {
@@ -78,6 +118,9 @@ public:
         this->gamma_theta = (gamma_theta == 0.0) ? eps_theta : gamma_theta;
         this->x_s = x_s;
         this->y_s = y_s;
+
+        this->galaxy_center = Point(x_g, y_g);
+        this->source = Point(x_s, y_s);
         
         // patch for circular case. TODO: better patch using some direct approximate solution when W is so big
         if (abs(this->eps) + abs(this->gamma) < 1e-8) {
@@ -85,38 +128,32 @@ public:
         }
     }
 
-    complex<double> rotate(double x, double y, double theta, complex<double> center = {0, 0}) {
-        theta = theta * M_PI / 180.0;
-        complex<double> point(x - center.real(), y - center.imag());
-        complex<double> rotated_point = point * polar(1.0, theta);
-        return rotated_point + center;
+
+    Point standardize(Point point) {
+        return rotate(point - galaxy_center, -eps_theta);
     }
 
-    complex<double> standardize(double x, double y) {
-        complex<double> point(x - x_g, y - y_g);
-        return rotate(point.real(), point.imag(), -eps_theta);
+    Point destandardize(Point point) {
+        return rotate(point, eps_theta) + galaxy_center;
     }
 
-    complex<double> destandardize(double x, double y) {
-        complex<double> point = rotate(x, y, eps_theta);
-        return point + complex<double>(x_g, y_g);
-    }
-
-    complex<double> scronch(complex<double> soln) {
+    Point scronch(complex<double> soln) {
         double costheta = soln.real();
         double sintheta = soln.imag();
-        // complex<double> point = standardize(x_s, y_s);
-        complex<double> ellipse_center = get_Wynne_ellipse_center();
-        double x_e = ellipse_center.real();
-        double y_e = ellipse_center.imag();
-        complex<double> ellipse_semiaxes = get_Wynne_ellipse_semiaxes();
-        double x_a = ellipse_semiaxes.real();
-        double y_a = ellipse_semiaxes.imag();
-        return complex<double>(x_e + x_a * costheta, y_e + y_a * sintheta);
+        
+        // stretch the point by the semiaxes of the ellipse
+        Point ellipse_semiaxes = get_Wynne_ellipse_semiaxes();
+        double x_a = ellipse_semiaxes.x;
+        double y_a = ellipse_semiaxes.y;
+        Point ellipse_point = Point(x_a * costheta, y_a * sintheta);
+
+        // displace the point by the center of the ellipse
+        return get_Wynne_ellipse_center() + ellipse_point;
+
     }
 
-    vector<complex<double>> get_image_configurations() {
-        vector<complex<double>> image_configurations;
+    vector<Point> get_image_configurations() {
+        vector<Point> image_configurations;
         vector<complex<double>> solns = get_angular_solns();
 
     for (complex<double> soln : solns) {
@@ -135,22 +172,22 @@ public:
         return make_tuple(D_xx, D_yy, D_xy);
     }
 
-    double soln_to_magnification(complex<double> scronched_soln) {
-        double x = scronched_soln.real();
-        double y = scronched_soln.imag();
+    double soln_to_magnification(Point scronched_soln) {
+        double x = scronched_soln.x;
+        double y = scronched_soln.y;
         double D_xx, D_yy, D_xy;
         tie(D_xx, D_yy, D_xy) = double_grad_pot(x, y);
         double mu_inv = (1 - D_xx) * (1 - D_yy) - pow(D_xy, 2);
         return 1 / mu_inv;
     }
 
-    tuple<vector<complex<double>>, vector<double>> get_image_and_mags(bool computeMagnification=true) {
-        vector<complex<double>> scronched_solns = get_image_configurations();
+    tuple<vector<Point>, vector<double>> get_image_and_mags(bool computeMagnification=true) {
+        vector<Point> scronched_solns = get_image_configurations();
 
-        vector<complex<double>> images;
+        vector<Point> images;
         vector<double> mags;
         for (const auto& s : scronched_solns) {
-            complex<double> image = destandardize(s.real(), s.imag());
+            Point image = destandardize(s);
             images.push_back(image);
             mags.push_back(computeMagnification ? soln_to_magnification(s) : 0.0);
         }
@@ -159,24 +196,23 @@ public:
     }
 
 private:
-    complex<double> get_Wynne_ellipse_center() {
-        complex<double> point = standardize(x_s, y_s);
-        double x_e = point.real() / (1 + gamma);
-        double y_e = point.imag() / (1 - gamma);
-        return complex<double>(x_e, y_e);
+    Point get_Wynne_ellipse_center() {
+        Point point = standardize(source);
+        double x_e = point.x / (1 + gamma);
+        double y_e = point.y / (1 - gamma);
+        return Point(x_e, y_e);
     }
 
-    complex<double> get_Wynne_ellipse_semiaxes() {
+    Point get_Wynne_ellipse_semiaxes() {
         double x_a = b / (1 + gamma);
         double y_a = b / ((1 - gamma) * (1 - eps));
-        return complex<double>(x_a, y_a);
+        return Point(x_a, y_a);
     }
 
     complex<double> get_W() {
-        using namespace complex_literals;
-        complex<double> point = standardize(x_s, y_s);
+        Point point = standardize(source);
         double f = (1 - eps) / (b * (1 - pow(1 - eps, 2) * (1 - gamma) / (1 + gamma)));
-        complex<double> W = f * ((1 - eps) * (1 - gamma) / (1 + gamma) * point.real() - 1i * point.imag());
+        complex<double> W = f * ((1 - eps) * (1 - gamma) / (1 + gamma) * point.x - 1i * point.y);
         return W;
     }
 
@@ -188,7 +224,7 @@ private:
 };
 
 
-tuple<vector<complex<double>>, vector<double>> get_images_and_mags(double b, double eps, double gamma, double x_g, double y_g, double theta,double x_s, double y_s, bool computeMagnification=true) {
+tuple<vector<Point>, vector<double>> get_images_and_mags(double b, double eps, double gamma, double x_g, double y_g, double theta,double x_s, double y_s, bool computeMagnification=true) {
     SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, theta, theta, x_s, y_s);
     return pot.get_image_and_mags(computeMagnification);
 }
@@ -225,7 +261,7 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
     }   
     inFile.close();
     // output to the output file
-    vector<complex<double>> images;
+    vector<Point> images;
     vector<double> mags;
     output << "b,x_g,y_g,eps,gamma,theta,x_s,y_s,";
     output << "x_1,y_1,mu_1,x_2,y_2,mu_2,x_3,y_3,mu_3,x_4,y_4,mu_4" << endl;
@@ -238,7 +274,7 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
         size_t num_images = images.size();
         for (size_t i = 0; i < 4; ++i) {
             if (i < num_images) {
-                output << images[i].real() << "," << images[i].imag() << "," << mags[i];
+                output << images[i].x << "," << images[i].y << "," << mags[i];
             } else {
                 output << ",,"; // Extra commas for fewer images
             }
@@ -366,7 +402,7 @@ int main(int argc, char* argv[]) {
         cout << "Running:";
         cout << " b=" << run_options::b << " x_g=" << run_options::x_g << " y_g=" << run_options::y_g << " eps=" << run_options::eps << " gamma=" << run_options::gamma << " theta=" << run_options::theta << " x_s=" << run_options::x_s << " y_s=" << run_options::y_s << endl;
 
-        vector<complex<double>> images;
+        vector<Point> images;
         vector<double> mags;
         tie(images, mags) = get_images_and_mags(run_options::b, run_options::eps, run_options::gamma, run_options::x_g, run_options::y_g, run_options::theta, run_options::x_s, run_options::y_s, run_options::computeMagnification);
         
@@ -375,8 +411,8 @@ int main(int argc, char* argv[]) {
         output << scientific << showpos << setprecision(16);
         for (size_t i = 0; i < images.size(); i++) {
             output << setw(2) << (i+1);
-            output << setw(COUT_PRECISION+8) << images[i].real();
-            output << setw(COUT_PRECISION+8) << images[i].imag();
+            output << setw(COUT_PRECISION+8) << images[i].x;
+            output << setw(COUT_PRECISION+8) << images[i].y;
             output << setw(COUT_PRECISION+8) << mags[i] << endl;
         }
     } else {

@@ -166,7 +166,7 @@ def test_cpp_model_on_all_files():
     params_df = df[params_list]
 
     params_df.to_csv("test.csv", index=False)
-    os.system("potentials -o test_output.csv test.csv")
+    os.system("./potentials.exe -o test_output.csv test.csv")
     cpp_output_df = pd.read_csv("test_output.csv")
     os.remove("test.csv")
     os.remove("test_output.csv")
