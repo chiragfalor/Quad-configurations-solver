@@ -38,6 +38,16 @@ public:
     Point operator-(const Point& other) const {
         return Point(x - other.x, y - other.y);
     }
+
+    // Overload the * operator to handle scalar multiplication
+    Point operator*(double scalar) const {
+        return Point(x * scalar, y * scalar);
+    }
+
+    // Optionally, to allow scalar multiplication in the reverse order (scalar * Point)
+    friend Point operator*(double scalar, const Point& p) {
+        return Point(p.x * scalar, p.y * scalar);
+    }
 };
 
 // Function to rotate a point around a center by an angle theta (in degrees)
@@ -88,15 +98,15 @@ complex<double> _get_quartic_solution(complex<double> W, int pm1 = +1, int pm2 =
     return z;
 }
 
-vector<complex<double>> get_ACLE_angular_solns(complex<double> W) {
-    vector<complex<double>> solns;
-
+vector<Point> get_ACLE_angular_solns(Point W) {
+    vector<Point> solns;
+    complex<double> W_complex = complex<double>(W.x, W.y);
     for (int i = 0; i < 4; i++) {
         int pm1 = (i / 2 == 0) ? +1 : -1;
         int pm2 = (i % 2 == 0) ? +1 : -1;
-        complex<double> s = _get_quartic_solution(W, pm1, pm2);
+        complex<double> s = _get_quartic_solution(W_complex, pm1, pm2);
         if (s != complex<double>(0.0, 0.0)) {
-            solns.push_back(s);
+            solns.push_back(Point(s.real(), s.imag()));
         }
     }
     return solns;
@@ -137,9 +147,9 @@ public:
         return rotate(point, eps_theta) + galaxy_center;
     }
 
-    Point scronch(complex<double> soln) {
-        double costheta = soln.real();
-        double sintheta = soln.imag();
+    Point scronch(Point soln) {
+        double costheta = soln.x;
+        double sintheta = soln.y;
         
         // stretch the point by the semiaxes of the ellipse
         Point ellipse_semiaxes = get_Wynne_ellipse_semiaxes();
@@ -148,15 +158,15 @@ public:
         Point ellipse_point = Point(x_a * costheta, y_a * sintheta);
 
         // displace the point by the center of the ellipse
-        return get_Wynne_ellipse_center() + ellipse_point;
+        return ellipse_point + get_Wynne_ellipse_center();
 
     }
 
     vector<Point> get_image_configurations() {
         vector<Point> image_configurations;
-        vector<complex<double>> solns = get_angular_solns();
+        vector<Point> solns = get_ACLE_angular_solns(get_W());
 
-    for (complex<double> soln : solns) {
+    for (Point soln : solns) {
             image_configurations.push_back(scronch(soln));
         }
 
@@ -209,18 +219,13 @@ private:
         return Point(x_a, y_a);
     }
 
-    complex<double> get_W() {
+    Point get_W() {
         Point point = standardize(source);
         double f = (1 - eps) / (b * (1 - pow(1 - eps, 2) * (1 - gamma) / (1 + gamma)));
-        complex<double> W = f * ((1 - eps) * (1 - gamma) / (1 + gamma) * point.x - 1i * point.y);
+        Point W = f * Point((1 - eps) * (1 - gamma) / (1 + gamma) * point.x, -point.y);
         return W;
     }
 
-    vector<complex<double>> get_angular_solns() {
-        complex<double> W = get_W();
-        vector<complex<double>> solns = get_ACLE_angular_solns(W);
-        return solns;
-    }
 };
 
 
