@@ -10,6 +10,8 @@
 #include <iomanip>
 #include <cassert>
 
+#include <autodiff/forward/dual.hpp>
+using autodiff::dual;
 
 using namespace std;
 
@@ -20,16 +22,16 @@ using namespace std;
 #define COUT_PRECISION 16
 
 // Convert degrees to radians if needed
-double toRadians(double degrees) {
+dual toRadians(dual degrees) {
     return degrees * M_PI / 180.0;
 }
 
 // // Structure to hold the coordinates
 class Point {
 public:
-    double x;
-    double y;
-    Point(double x = 0.0, double y = 0.0) : x(x), y(y) {}
+    dual x;
+    dual y;
+    Point(dual x = 0.0, dual y = 0.0) : x(x), y(y) {}
 
     Point operator+(const Point& other) const {
         return Point(x + other.x, y + other.y);
@@ -40,18 +42,23 @@ public:
     }
 
     // Overload the * operator to handle scalar multiplication
-    Point operator*(double scalar) const {
+    Point operator*(dual scalar) const {
         return Point(x * scalar, y * scalar);
     }
 
     // Optionally, to allow scalar multiplication in the reverse order (scalar * Point)
-    friend Point operator*(double scalar, const Point& p) {
+    friend Point operator*(dual scalar, const Point& p) {
         return Point(p.x * scalar, p.y * scalar);
     }
 };
 
+ostream& operator<<(ostream& os, const Point& point) {
+    os << point.x << "," << point.y;
+    return os;
+}
+
 // Function to rotate a point around a center by an angle theta (in degrees)
-Point rotate(Point point, double theta, Point center = {0.0, 0.0}) {
+Point rotate(Point point, dual theta, Point center = {0.0, 0.0}) {
     // Translate the point to the origin relative to the center
     point = point - center;
 
@@ -59,8 +66,8 @@ Point rotate(Point point, double theta, Point center = {0.0, 0.0}) {
     theta = toRadians(theta);
 
     // Apply rotation matrix
-    double cosTheta = cos(theta);
-    double sinTheta = sin(theta);
+    dual cosTheta = cos(theta);
+    dual sinTheta = sin(theta);
     Point rotatedPoint = {point.x * cosTheta - point.y * sinTheta, point.x * sinTheta + point.y * cosTheta};
 
     // Translate back to the original center
@@ -100,7 +107,7 @@ complex<double> _get_quartic_solution(complex<double> W, int pm1 = +1, int pm2 =
 
 vector<Point> get_ACLE_angular_solns(Point W) {
     vector<Point> solns;
-    complex<double> W_complex = complex<double>(W.x, W.y);
+    complex<double> W_complex = complex<double>(W.x.val, W.y.val);
     for (int i = 0; i < 4; i++) {
         int pm1 = (i / 2 == 0) ? +1 : -1;
         int pm2 = (i % 2 == 0) ? +1 : -1;
@@ -112,22 +119,43 @@ vector<Point> get_ACLE_angular_solns(Point W) {
     return solns;
 }
 
-class SIEP_plus_XS {
-private:
-    double b, eps, gamma, x_g, y_g, eps_theta, gamma_theta, x_s, y_s;
-    Point galaxy_center, source;
-
-public:
-    SIEP_plus_XS(double b = 1.0, double eps = 0.0, double gamma = 0.0, double x_g = 0.0, double y_g = 0.0, double eps_theta = 0.0, double gamma_theta = 0.0, double x_s = 0.0, double y_s = 0.0) {
+struct PotentialParams {
+    dual b, eps, gamma, x_g, y_g, eps_theta, gamma_theta, x_s, y_s;
+    PotentialParams(dual b = 1.0, dual eps = 0.0, dual gamma = 0.0, dual x_g = 0.0, dual y_g = 0.0, dual eps_theta = 0.0, dual gamma_theta = 0.0, dual x_s = 0.0, dual y_s = 0.0) {
         this->b = b;
         this->eps = eps;
         this->gamma = gamma;
         this->x_g = x_g;
         this->y_g = y_g;
         this->eps_theta = eps_theta;
-        this->gamma_theta = (gamma_theta == 0.0) ? eps_theta : gamma_theta;
+        this->gamma_theta = gamma_theta;
         this->x_s = x_s;
         this->y_s = y_s;
+    }
+};
+
+
+ostream& operator<<(ostream& os, const PotentialParams& params) {
+    os << "b=" << params.b << " eps=" << params.eps << " gamma=" << params.gamma << " x_g=" << params.x_g << " y_g=" << params.y_g << " eps_theta=" << params.eps_theta << " gamma_theta=" << params.gamma_theta << " x_s=" << params.x_s << " y_s=" << params.y_s;
+    return os;
+}
+
+class SIEP_plus_XS {
+private:
+    dual b, eps, gamma, x_g, y_g, eps_theta, gamma_theta, x_s, y_s;
+    Point galaxy_center, source;
+
+public:
+    SIEP_plus_XS(const PotentialParams& params) {
+        this->b = params.b;
+        this->eps = params.eps;
+        this->gamma = params.gamma;
+        this->x_g = params.x_g;
+        this->y_g = params.y_g;
+        this->eps_theta = params.eps_theta;
+        this->gamma_theta = (params.gamma_theta == 0.0) ? params.eps_theta : params.gamma_theta;
+        this->x_s = params.x_s;
+        this->y_s = params.y_s;
 
         this->galaxy_center = Point(x_g, y_g);
         this->source = Point(x_s, y_s);
@@ -148,13 +176,13 @@ public:
     }
 
     Point scronch(Point soln) {
-        double costheta = soln.x;
-        double sintheta = soln.y;
+        dual costheta = soln.x;
+        dual sintheta = soln.y;
         
         // stretch the point by the semiaxes of the ellipse
         Point ellipse_semiaxes = get_Wynne_ellipse_semiaxes();
-        double x_a = ellipse_semiaxes.x;
-        double y_a = ellipse_semiaxes.y;
+        dual x_a = ellipse_semiaxes.x;
+        dual y_a = ellipse_semiaxes.y;
         Point ellipse_point = Point(x_a * costheta, y_a * sintheta);
 
         // displace the point by the center of the ellipse
@@ -173,29 +201,27 @@ public:
         return image_configurations;
     }
 
-    tuple<double, double, double> double_grad_pot(double x, double y) {
-        double t = pow((x*x + y*y/(pow(1-eps, 2))), 0.5);
-        double f = b / (pow(t, 3) * pow(1-eps, 2));
-        double D_xx = f*y*y - gamma;
-        double D_yy = f*x*x + gamma;
-        double D_xy = -f*x*y;
+    tuple<dual, dual, dual> double_grad_pot(dual x, dual y) {
+        dual t = pow((x*x + y*y/(pow(1-eps, 2))), 0.5);
+        dual f = b / (pow(t, 3) * pow(1-eps, 2));
+        dual D_xx = f*y*y - gamma;
+        dual D_yy = f*x*x + gamma;
+        dual D_xy = -f*x*y;
         return make_tuple(D_xx, D_yy, D_xy);
     }
 
-    double soln_to_magnification(Point scronched_soln) {
-        double x = scronched_soln.x;
-        double y = scronched_soln.y;
-        double D_xx, D_yy, D_xy;
-        tie(D_xx, D_yy, D_xy) = double_grad_pot(x, y);
-        double mu_inv = (1 - D_xx) * (1 - D_yy) - pow(D_xy, 2);
+    dual soln_to_magnification(Point scronched_soln) {
+        dual D_xx, D_yy, D_xy;
+        tie(D_xx, D_yy, D_xy) = double_grad_pot(scronched_soln.x, scronched_soln.y);
+        dual mu_inv = (1 - D_xx) * (1 - D_yy) - pow(D_xy, 2);
         return 1 / mu_inv;
     }
 
-    tuple<vector<Point>, vector<double>> get_image_and_mags(bool computeMagnification=true) {
+    tuple<vector<Point>, vector<dual>> get_image_and_mags(bool computeMagnification=true) {
         vector<Point> scronched_solns = get_image_configurations();
 
         vector<Point> images;
-        vector<double> mags;
+        vector<dual> mags;
         for (const auto& s : scronched_solns) {
             Point image = destandardize(s);
             images.push_back(image);
@@ -208,20 +234,20 @@ public:
 private:
     Point get_Wynne_ellipse_center() {
         Point point = standardize(source);
-        double x_e = point.x / (1 + gamma);
-        double y_e = point.y / (1 - gamma);
+        dual x_e = point.x / (1 + gamma);
+        dual y_e = point.y / (1 - gamma);
         return Point(x_e, y_e);
     }
 
     Point get_Wynne_ellipse_semiaxes() {
-        double x_a = b / (1 + gamma);
-        double y_a = b / ((1 - gamma) * (1 - eps));
+        dual x_a = b / (1 + gamma);
+        dual y_a = b / ((1 - gamma) * (1 - eps));
         return Point(x_a, y_a);
     }
 
     Point get_W() {
         Point point = standardize(source);
-        double f = (1 - eps) / (b * (1 - pow(1 - eps, 2) * (1 - gamma) / (1 + gamma)));
+        dual f = (1 - eps) / (b * (1 - pow(1 - eps, 2) * (1 - gamma) / (1 + gamma)));
         Point W = f * Point((1 - eps) * (1 - gamma) / (1 + gamma) * point.x, -point.y);
         return W;
     }
@@ -229,8 +255,8 @@ private:
 };
 
 
-tuple<vector<Point>, vector<double>> get_images_and_mags(double b, double eps, double gamma, double x_g, double y_g, double theta,double x_s, double y_s, bool computeMagnification=true) {
-    SIEP_plus_XS pot(b, eps, gamma, x_g, y_g, theta, theta, x_s, y_s);
+tuple<vector<Point>, vector<dual>> get_images_and_mags(const PotentialParams& params, bool computeMagnification=true) {
+    SIEP_plus_XS pot(params);
     return pot.get_image_and_mags(computeMagnification);
 }
 
@@ -267,15 +293,17 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
     inFile.close();
     // output to the output file
     vector<Point> images;
-    vector<double> mags;
+    vector<dual> mags;
     output << "b,x_g,y_g,eps,gamma,theta,x_s,y_s,";
     output << "x_1,y_1,mu_1,x_2,y_2,mu_2,x_3,y_3,mu_3,x_4,y_4,mu_4" << endl;
     output << scientific << showpos << setprecision(16);
     for (const auto& conf : input_configurations) {
-        double x_s = conf[6], y_s = conf[7], b = conf[0], eps = conf[3], gamma = conf[4], x_g = conf[1], y_g = conf[2], theta = conf[5];
-        tie(images, mags) = get_images_and_mags(b, eps, gamma, x_g, y_g, theta, x_s, y_s, computeMagnification);
+        // double x_s = conf[6], y_s = conf[7], b = conf[0], eps = conf[3], gamma = conf[4], x_g = conf[1], y_g = conf[2], theta = conf[5];
+        PotentialParams params(conf[0], conf[3], conf[4], conf[1], conf[2], conf[5], 0.0, conf[6], conf[7]);
+
+        tie(images, mags) = get_images_and_mags(params, computeMagnification);
         // Write the results to the output file
-        output << b << "," << x_g << "," << y_g << "," << eps << "," << gamma << "," << theta << "," << x_s << "," << y_s << ",";
+        output << params.b << "," << params.x_g << "," << params.y_g << "," << params.eps << "," << params.gamma << "," << params.eps_theta << "," << params.x_s << "," << params.y_s << ",";
         size_t num_images = images.size();
         for (size_t i = 0; i < 4; ++i) {
             if (i < num_images) {
@@ -298,7 +326,7 @@ namespace run_options {
     void print_help();
 
     string input_file;
-    double b, x_g, y_g, eps, gamma, theta, x_s, y_s;
+    PotentialParams params;
 
     string output_file;
 
@@ -323,14 +351,14 @@ void run_options::parse(int argc, char* argv[]) {
         } else if (arg == "-c" || arg == "--conf") {
             if (i + 8 < argc) {
                 one_conf = true;
-                b = atof(argv[++i]);
-                x_g = atof(argv[++i]);
-                y_g = atof(argv[++i]);
-                eps = atof(argv[++i]);
-                gamma = atof(argv[++i]);
-                theta = atof(argv[++i]);
-                x_s = atof(argv[++i]);
-                y_s = atof(argv[++i]);
+                params.b = atof(argv[++i]);
+                params.x_g = atof(argv[++i]);
+                params.y_g = atof(argv[++i]);
+                params.eps = atof(argv[++i]);
+                params.gamma = atof(argv[++i]);
+                params.eps_theta = atof(argv[++i]);
+                params.x_s = atof(argv[++i]);
+                params.y_s = atof(argv[++i]);
             } else {
                 cerr << "Error: -c option requires 8 floating point arguments: b x_g y_g eps gamma theta x_s y_s." << endl;
                 exit(1);
@@ -405,11 +433,11 @@ int main(int argc, char* argv[]) {
 
     if (run_options::one_conf) {
         cout << "Running:";
-        cout << " b=" << run_options::b << " x_g=" << run_options::x_g << " y_g=" << run_options::y_g << " eps=" << run_options::eps << " gamma=" << run_options::gamma << " theta=" << run_options::theta << " x_s=" << run_options::x_s << " y_s=" << run_options::y_s << endl;
+        cout << run_options::params << endl;
 
         vector<Point> images;
-        vector<double> mags;
-        tie(images, mags) = get_images_and_mags(run_options::b, run_options::eps, run_options::gamma, run_options::x_g, run_options::y_g, run_options::theta, run_options::x_s, run_options::y_s, run_options::computeMagnification);
+        vector<dual> mags;
+        tie(images, mags) = get_images_and_mags(run_options::params, run_options::computeMagnification);
         
         output << "id" << setw(COUT_PRECISION+8) <<  "x" << setw(COUT_PRECISION+8) << "y" << setw(COUT_PRECISION+8) << "mu" << endl;
 
