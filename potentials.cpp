@@ -124,19 +124,70 @@ complex<double> _get_quartic_solution(complex<double> W, int pm1 = +1, int pm2 =
     return z;
 }
 
-vector<Point> get_ACLE_angular_solns(Point W) {
-    vector<Point> solns;
-    complex<double> W_complex = complex<double>(W.x.val(), W.y.val());  
+vector<complex<double>> ACLE(complex<double> W) {
+    vector<complex<double>> solns;
     for (int i = 0; i < 4; i++) {
         int pm1 = (i / 2 == 0) ? +1 : -1;
         int pm2 = (i % 2 == 0) ? +1 : -1;
-        complex<double> s = _get_quartic_solution(W_complex, pm1, pm2);
+        complex<double> s = _get_quartic_solution(W, pm1, pm2);
         if (s != complex<double>(0.0, 0.0)) {
-            solns.push_back(Point(s.real(), s.imag()));
+            solns.push_back(s);
         }
     }
     return solns;
 }
+
+complex<double> ACLE_dWreal(complex<double> W, complex<double> z) {
+    return z*(z*z - 1.0) / (2.0*z*z*z - 3.0*z*z*W + conj(W));
+}
+
+complex<double> ACLE_dWimag(complex<double> W, complex<double> z) {
+    complex<double> i = complex<double>(0.0, 1.0);
+    return i*z*(z*z + 1.0) / (2.0*z*z*z - 3.0*z*z*W + conj(W));
+}
+
+vector<Point> ACLE_dual(Point W) {
+    vector<Point> solns;
+    real Wx = W.x, Wy = W.y;
+    complex<double> W_complex = complex<double>(Wx.val(), Wy.val());
+    vector<complex<double>> solns_complex = ACLE(W_complex);
+
+    for (int i = 0; i < solns_complex.size(); i++) {
+        complex<double> z = solns_complex[i];
+        Point soln = Point(z.real(), z.imag());
+
+        // TODO, check why is there minus sign in the cross-derivative terms
+
+        if(Wx[1] != 0.0) {
+            soln.x[1] = Wx[1] * ACLE_dWreal(W_complex, z).real(); 
+            soln.y[1] = -Wx[1] * ACLE_dWreal(W_complex, z).imag();
+
+        }
+
+        if(Wy[1] != 0.0) {
+            soln.x[1] -= Wy[1] * ACLE_dWimag(W_complex, z).real();
+            soln.y[1] += Wy[1] * ACLE_dWimag(W_complex, z).imag();
+        }
+
+        solns.push_back(soln);
+    }
+
+    return solns;
+}
+
+// vector<Point> get_ACLE_angular_solns(Point W) {
+//     vector<Point> solns;
+//     complex<double> W_complex = complex<double>(W.x.val(), W.y.val());  
+//     for (int i = 0; i < 4; i++) {
+//         int pm1 = (i / 2 == 0) ? +1 : -1;
+//         int pm2 = (i % 2 == 0) ? +1 : -1;
+//         complex<double> s = _get_quartic_solution(W_complex, pm1, pm2);
+//         if (s != complex<double>(0.0, 0.0)) {
+//             solns.push_back(Point(s.real(), s.imag()));
+//         }
+//     }
+//     return solns;
+// }
 
 struct PotentialParams {
     real b, eps, gamma, x_g, y_g, eps_theta, gamma_theta, x_s, y_s;
@@ -211,7 +262,7 @@ public:
 
     vector<Point> get_image_configurations() {
         vector<Point> image_configurations;
-        vector<Point> solns = get_ACLE_angular_solns(get_W());
+        vector<Point> solns = ACLE_dual(get_W());
 
     for (Point soln : solns) {
             image_configurations.push_back(scronch(soln));
