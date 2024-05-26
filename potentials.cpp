@@ -5,33 +5,52 @@
 #include <fstream>
 #include <sstream>
 #include <vector>
-#include <unordered_map>
 #include <string>
 #include <iomanip>
 #include <cassert>
 
 #include <autodiff/forward/dual.hpp>
+#include <autodiff/forward/real.hpp>
+#include <autodiff/forward/real/eigen.hpp>
 using autodiff::dual;
+using autodiff::real;
 
-using namespace std;
-
-#ifndef M_PI
-#define M_PI 3.14159265358979323846
-#endif
+using std::complex;
+using std::cout;
+using std::cerr;
+using std::endl;
+using std::ifstream;
+using std::ofstream;
+using std::stringstream;
+using std::vector;
+using std::string;
+using std::ostream;
+using std::setw;
+using std::tuple;
+using std::tie;
+using std::make_tuple;
+using std::scientific;
+using std::showpos;
+using std::setprecision;
+using std::streambuf;
+using std::noshowpos;
+using std::fixed;
+using std::max;
 
 #define COUT_PRECISION 16
 
 // Convert degrees to radians if needed
-dual toRadians(dual degrees) {
-    return degrees * M_PI / 180.0;
+real toRadians(real degrees) 
+{
+    return degrees * 3.14159265358979323846 / 180.0;
 }
 
 // // Structure to hold the coordinates
 class Point {
 public:
-    dual x;
-    dual y;
-    Point(dual x = 0.0, dual y = 0.0) : x(x), y(y) {}
+    real x;
+    real y;
+    Point(real x = 0.0, real y = 0.0) : x(x), y(y) {}
 
     Point operator+(const Point& other) const {
         return Point(x + other.x, y + other.y);
@@ -42,12 +61,12 @@ public:
     }
 
     // Overload the * operator to handle scalar multiplication
-    Point operator*(dual scalar) const {
+    Point operator*(real scalar) const {
         return Point(x * scalar, y * scalar);
     }
 
     // Optionally, to allow scalar multiplication in the reverse order (scalar * Point)
-    friend Point operator*(dual scalar, const Point& p) {
+    friend Point operator*(real scalar, const Point& p) {
         return Point(p.x * scalar, p.y * scalar);
     }
 };
@@ -58,7 +77,7 @@ ostream& operator<<(ostream& os, const Point& point) {
 }
 
 // Function to rotate a point around a center by an angle theta (in degrees)
-Point rotate(Point point, dual theta, Point center = {0.0, 0.0}) {
+Point rotate(Point point, real theta, Point center = {0.0, 0.0}) {
     // Translate the point to the origin relative to the center
     point = point - center;
 
@@ -66,8 +85,8 @@ Point rotate(Point point, dual theta, Point center = {0.0, 0.0}) {
     theta = toRadians(theta);
 
     // Apply rotation matrix
-    dual cosTheta = cos(theta);
-    dual sinTheta = sin(theta);
+    real cosTheta = cos(theta);
+    real sinTheta = sin(theta);
     Point rotatedPoint = {point.x * cosTheta - point.y * sinTheta, point.x * sinTheta + point.y * cosTheta};
 
     // Translate back to the original center
@@ -107,7 +126,7 @@ complex<double> _get_quartic_solution(complex<double> W, int pm1 = +1, int pm2 =
 
 vector<Point> get_ACLE_angular_solns(Point W) {
     vector<Point> solns;
-    complex<double> W_complex = complex<double>(W.x.val, W.y.val);
+    complex<double> W_complex = complex<double>(W.x.val(), W.y.val());  
     for (int i = 0; i < 4; i++) {
         int pm1 = (i / 2 == 0) ? +1 : -1;
         int pm2 = (i % 2 == 0) ? +1 : -1;
@@ -120,8 +139,8 @@ vector<Point> get_ACLE_angular_solns(Point W) {
 }
 
 struct PotentialParams {
-    dual b, eps, gamma, x_g, y_g, eps_theta, gamma_theta, x_s, y_s;
-    PotentialParams(dual b = 1.0, dual eps = 0.0, dual gamma = 0.0, dual x_g = 0.0, dual y_g = 0.0, dual eps_theta = 0.0, dual gamma_theta = 0.0, dual x_s = 0.0, dual y_s = 0.0) {
+    real b, eps, gamma, x_g, y_g, eps_theta, gamma_theta, x_s, y_s;
+    PotentialParams(real b = 1.0, real eps = 0.0, real gamma = 0.0, real x_g = 0.0, real y_g = 0.0, real eps_theta = 0.0, real gamma_theta = 0.0, real x_s = 0.0, real y_s = 0.0) {
         this->b = b;
         this->eps = eps;
         this->gamma = gamma;
@@ -142,7 +161,7 @@ ostream& operator<<(ostream& os, const PotentialParams& params) {
 
 class SIEP_plus_XS {
 private:
-    dual b, eps, gamma, x_g, y_g, eps_theta, gamma_theta, x_s, y_s;
+    real b, eps, gamma, x_g, y_g, eps_theta, gamma_theta, x_s, y_s;
     Point galaxy_center, source;
 
 public:
@@ -176,13 +195,13 @@ public:
     }
 
     Point scronch(Point soln) {
-        dual costheta = soln.x;
-        dual sintheta = soln.y;
+        real costheta = soln.x;
+        real sintheta = soln.y;
         
         // stretch the point by the semiaxes of the ellipse
         Point ellipse_semiaxes = get_Wynne_ellipse_semiaxes();
-        dual x_a = ellipse_semiaxes.x;
-        dual y_a = ellipse_semiaxes.y;
+        real x_a = ellipse_semiaxes.x;
+        real y_a = ellipse_semiaxes.y;
         Point ellipse_point = Point(x_a * costheta, y_a * sintheta);
 
         // displace the point by the center of the ellipse
@@ -201,28 +220,28 @@ public:
         return image_configurations;
     }
 
-    tuple<dual, dual, dual> double_grad_pot(dual x, dual y) {
-        dual t = pow((x*x + y*y/(pow(1-eps, 2))), 0.5);
-        dual f = b / (pow(t, 3) * pow(1-eps, 2));
-        dual D_xx = f*y*y - gamma;
-        dual D_yy = f*x*x + gamma;
-        dual D_xy = -f*x*y;
+    tuple<real, real, real> double_grad_pot(real x, real y) {
+        real t = pow((x*x + y*y/(pow(1-eps, 2))), 0.5);
+        real f = b / (pow(t, 3) * pow(1-eps, 2));
+        real D_xx = f*y*y - gamma;
+        real D_yy = f*x*x + gamma;
+        real D_xy = -f*x*y;
         return make_tuple(D_xx, D_yy, D_xy);
     }
 
-    dual soln_to_magnification(Point scronched_soln) {
-        dual D_xx, D_yy, D_xy;
+    real soln_to_magnification(Point scronched_soln) {
+        real D_xx, D_yy, D_xy;
         tie(D_xx, D_yy, D_xy) = double_grad_pot(scronched_soln.x, scronched_soln.y);
-        dual mu_inv = (1 - D_xx) * (1 - D_yy) - pow(D_xy, 2);
+        real mu_inv = (1 - D_xx) * (1 - D_yy) - pow(D_xy, 2);
         return 1 / mu_inv;
     }
 
-    tuple<vector<Point>, vector<dual>> get_image_and_mags(bool computeMagnification=true) {
+    tuple<vector<Point>, vector<real>> get_image_and_mags(bool computeMagnification=true) {
         vector<Point> scronched_solns = get_image_configurations();
 
         vector<Point> images;
-        vector<dual> mags;
-        for (const auto& s : scronched_solns) {
+        vector<real> mags;
+        for (const Point& s : scronched_solns) {
             Point image = destandardize(s);
             images.push_back(image);
             mags.push_back(computeMagnification ? soln_to_magnification(s) : 0.0);
@@ -234,20 +253,20 @@ public:
 private:
     Point get_Wynne_ellipse_center() {
         Point point = standardize(source);
-        dual x_e = point.x / (1 + gamma);
-        dual y_e = point.y / (1 - gamma);
+        real x_e = point.x / (1 + gamma);
+        real y_e = point.y / (1 - gamma);
         return Point(x_e, y_e);
     }
 
     Point get_Wynne_ellipse_semiaxes() {
-        dual x_a = b / (1 + gamma);
-        dual y_a = b / ((1 - gamma) * (1 - eps));
+        real x_a = b / (1 + gamma);
+        real y_a = b / ((1 - gamma) * (1 - eps));
         return Point(x_a, y_a);
     }
 
     Point get_W() {
         Point point = standardize(source);
-        dual f = (1 - eps) / (b * (1 - pow(1 - eps, 2) * (1 - gamma) / (1 + gamma)));
+        real f = (1 - eps) / (b * (1 - pow(1 - eps, 2) * (1 - gamma) / (1 + gamma)));
         Point W = f * Point((1 - eps) * (1 - gamma) / (1 + gamma) * point.x, -point.y);
         return W;
     }
@@ -255,7 +274,7 @@ private:
 };
 
 
-tuple<vector<Point>, vector<dual>> get_images_and_mags(const PotentialParams& params, bool computeMagnification=true) {
+tuple<vector<Point>, vector<real>> get_images_and_mags(const PotentialParams& params, bool computeMagnification=true) {
     SIEP_plus_XS pot(params);
     return pot.get_image_and_mags(computeMagnification);
 }
@@ -293,11 +312,11 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
     inFile.close();
     // output to the output file
     vector<Point> images;
-    vector<dual> mags;
+    vector<real> mags;
     output << "b,x_g,y_g,eps,gamma,theta,x_s,y_s,";
     output << "x_1,y_1,mu_1,x_2,y_2,mu_2,x_3,y_3,mu_3,x_4,y_4,mu_4" << endl;
     output << scientific << showpos << setprecision(16);
-    for (const auto& conf : input_configurations) {
+    for (const vector<double>& conf : input_configurations) {
         // double x_s = conf[6], y_s = conf[7], b = conf[0], eps = conf[3], gamma = conf[4], x_g = conf[1], y_g = conf[2], theta = conf[5];
         PotentialParams params(conf[0], conf[3], conf[4], conf[1], conf[2], conf[5], 0.0, conf[6], conf[7]);
 
@@ -436,7 +455,7 @@ int main(int argc, char* argv[]) {
         cout << run_options::params << endl;
 
         vector<Point> images;
-        vector<dual> mags;
+        vector<real> mags;
         tie(images, mags) = get_images_and_mags(run_options::params, run_options::computeMagnification);
         
         output << "id" << setw(COUT_PRECISION+8) <<  "x" << setw(COUT_PRECISION+8) << "y" << setw(COUT_PRECISION+8) << "mu" << endl;
