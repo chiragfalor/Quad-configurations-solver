@@ -14,6 +14,9 @@
 #include <autodiff/forward/real/eigen.hpp>
 using autodiff::dual;
 using autodiff::real;
+using autodiff::VectorXreal;
+
+using Eigen::MatrixXd;
 
 using std::complex;
 using std::cout;
@@ -330,8 +333,37 @@ tuple<vector<Point>, vector<real>> get_images_and_mags(const PotentialParams& pa
     return pot.get_image_and_mags(computeMagnification);
 }
 
+MatrixXd get_derivatives(const PotentialParams& params, bool computeMagnification=true) {
+    auto f = [&](const VectorXreal& p) -> VectorXreal {
+        PotentialParams params(p[0], p[3], p[4], p[1], p[2], p[5], 0.0, p[6], p[7]);
+        SIEP_plus_XS pot(params);
+        vector<Point> images;
+        vector<real> mags;
+        tie(images, mags) = pot.get_image_and_mags(computeMagnification);
 
-void generate_image_configurations_from_CSV(const string& inputFile, ostream& output, bool computeMagnification=true) {
+        VectorXreal result(3 * images.size());
+        for (size_t i = 0; i < images.size(); i++) {
+            result[3 * i] = images[i].x;
+            result[3 * i + 1] = images[i].y;
+            result[3 * i + 2] = mags[i];
+        }
+
+        return result;
+    };
+    
+    // the jacobian matrix will be a 3n * 8 matrix where n is the number of images
+    // the parameters are in the order: "b,x_g,y_g,eps,gamma,theta,x_s,y_s", which is same as expected in the header of a CSV file
+
+    VectorXreal p(8);
+    p << params.b, params.x_g, params.y_g, params.eps, params.gamma, params.eps_theta, params.x_s, params.y_s;
+
+
+    return autodiff::jacobian(f, autodiff::wrt(p), autodiff::at(p));
+
+}
+
+
+void generate_image_configurations_from_CSV(const string& inputFile, ostream& output, bool computeMagnification=true, bool computeDerivatives=false) {
     ifstream inFile(inputFile);
     // ofstream outFile(outputFile);
 
@@ -364,8 +396,29 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
     // output to the output file
     vector<Point> images;
     vector<real> mags;
-    output << "b,x_g,y_g,eps,gamma,theta,x_s,y_s,";
-    output << "x_1,y_1,mu_1,x_2,y_2,mu_2,x_3,y_3,mu_3,x_4,y_4,mu_4" << endl;
+
+    vector<string> paramNames = {"b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"};
+    vector<string> outputNames = {"x_1", "y_1", "mu_1", "x_2", "y_2", "mu_2", "x_3", "y_3", "mu_3", "x_4", "y_4", "mu_4"};
+
+    for (const string& name : paramNames) {
+        output << name << ",";
+    }
+    for (const string& name : outputNames) {
+        output << name;
+        if (&name != &outputNames.back())
+            output << ",";
+    }
+
+    // Append derivative headers if necessary
+    if (computeDerivatives) {
+        for (const auto& outputName : outputNames) {
+            for (const auto& paramName : paramNames) {
+                output << ",d(" << outputName << ")/d(" << paramName << ")";
+            }
+        }
+    }
+
+    output << endl;
     output << scientific << showpos << setprecision(16);
     for (const vector<double>& conf : input_configurations) {
         // double x_s = conf[6], y_s = conf[7], b = conf[0], eps = conf[3], gamma = conf[4], x_g = conf[1], y_g = conf[2], theta = conf[5];
@@ -374,16 +427,30 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
         tie(images, mags) = get_images_and_mags(params, computeMagnification);
         // Write the results to the output file
         output << params.b << "," << params.x_g << "," << params.y_g << "," << params.eps << "," << params.gamma << "," << params.eps_theta << "," << params.x_s << "," << params.y_s << ",";
-        size_t num_images = images.size();
-        for (size_t i = 0; i < 4; ++i) {
-            if (i < num_images) {
+        // size_t num_images = images.size();
+        int maxImages = 4;  // Assume there are at most 4 images
+        for (int i = 0; i < maxImages; i++) {
+            if (i < images.size()) {
                 output << images[i].x << "," << images[i].y << "," << mags[i];
             } else {
-                output << ",,"; // Extra commas for fewer images
+                output << ",,";  // Fill missing image data with empty fields
             }
-            if (i < 3)
-                output << ",";
+            if (i < maxImages - 1) output << ",";
         }
+
+        // Compute and write derivatives if required
+        if (computeDerivatives) {
+            MatrixXd derivatives = get_derivatives(params, computeMagnification);
+            for (int i = 0; i < 3*maxImages; ++i) {
+                for (int j = 0; j < derivatives.cols(); ++j) {
+                    output << ",";
+                    if (i < derivatives.rows()) {
+                        output << derivatives(i, j);
+                    }
+                }
+            }
+        }
+
         output << endl;
     }
     return;
@@ -403,6 +470,7 @@ namespace run_options {
 
     bool one_conf;
     bool computeMagnification = true;
+    bool computeDerivatives = false;
     bool out_to_file;
 
 }
@@ -445,6 +513,9 @@ void run_options::parse(int argc, char* argv[]) {
         } else if (arg == "-n" || arg == "--nomag") {
             computeMagnification = false;
         } // else check if the file name has been provided
+        else if (arg == "-d" || arg == "--deriv") {
+            computeDerivatives = true;
+        }
         else if (i == argc - 1) {
             input_file = argv[i];
         } else {
@@ -462,6 +533,7 @@ void run_options::print_help() {
     cerr << "  -c, --conf: calculate for a single configuration" << endl;
     cerr << "  -o, --output FILE: write the output to the specified FILE" << endl;
     cerr << "  -n, --nomag: don't calculate magnifications" << endl;
+    cerr << "  -d, --deriv: calculate derivatives" << endl;
     cerr << endl;
     cerr << "Input CSV format:" << endl;
     cerr << "b,x_g,y_g,eps,gamma,theta,x_s,y_s" << endl;
@@ -518,10 +590,14 @@ int main(int argc, char* argv[]) {
             output << setw(COUT_PRECISION+8) << images[i].y;
             output << setw(COUT_PRECISION+8) << mags[i] << endl;
         }
+        // output derivative matrix if required
+        if (run_options::computeDerivatives) {
+            MatrixXd derivatives = get_derivatives(run_options::params, run_options::computeMagnification);
+            output << "Derivatives:" << endl;
+            output << derivatives << endl;
+        }
     } else {
-        generate_image_configurations_from_CSV(run_options::input_file, output, run_options::computeMagnification);
-
-
+        generate_image_configurations_from_CSV(run_options::input_file, output, run_options::computeMagnification, run_options::computeDerivatives);
     }
 
             

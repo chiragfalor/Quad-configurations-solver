@@ -186,3 +186,5 @@ def test_cpp_model_on_all_files():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+    # just test the cpp model
+    # pytest.main([__file__, "-k test_cpp_model_on_all_files"])
