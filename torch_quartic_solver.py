@@ -34,6 +34,9 @@ def _get_quartic_solution(W, pm1=+1, pm2=+1):
     return z
 
 def ACLE(W) -> list[torch.Tensor]:
+    # if W is not a tensor, convert it to a tensor
+    if not torch.is_tensor(W):
+        W = torch.tensor(W, dtype=torch.complex128)
     solns = []
     for i in range(4):
         pm1 = [+1, -1][i // 2]

@@ -185,7 +185,7 @@ class Potential:
 
 
 class SIEP_plus_XS(Potential):
-    def __init__(self, b=0, eps=0, gamma=0, x_g=0, y_g=0, eps_theta=0, gamma_theta=None, theta=None, **kwargs):
+    def __init__(self, b=0, eps=0, gamma=0, x_g=0, y_g=0, eps_theta=0, gamma_theta=None, theta=None, x_s=0, y_s=0, **kwargs):
         # phi = b\sqrt{x^2 + y^2/(1-eps)^2} - gamma/2*(x^2 - y^2)
         if theta is not None:
             eps_theta = theta
@@ -194,12 +194,13 @@ class SIEP_plus_XS(Potential):
             eps_theta = self.gamma_theta
         # assert theta are close, we don't handle unparallel cases yet
         assert abs(self.gamma_theta - eps_theta) < 1e-3 or abs(gamma*eps) < 1e-10
-        super().__init__(b=b, eps=eps, gamma=gamma, x_g=x_g, y_g=y_g, theta=eps_theta)
+        super().__init__(b=b, eps=eps, gamma=gamma, x_g=x_g, y_g=y_g, theta=eps_theta, x_s=x_s, y_s=y_s)
         self.b = self.pot_params['b']
         self.eps = self.pot_params['eps']
         self.gamma = self.pot_params['gamma']
         self.x_g, self.y_g = self.pot_params['x_g'], self.pot_params['y_g']
         self.eps_theta, self.gamma_theta = self.pot_params['theta'], self.pot_params['theta']
+        self.x_s, self.y_s = self.pot_params['x_s'], self.pot_params['y_s']
         # self.potential = lambda x, y: b*torch.sqrt((x-x_g)**2 + (y-y_g)**2/(1-eps)**2) - gamma/2*((x-x_g)**2 - (y-y_g)**2)
         self.potential = lambda x, y: b*torch.sqrt(x**2 + y**2/(1-eps)**2) - gamma/2*(x**2 - y**2)
 
@@ -212,14 +213,14 @@ class SIEP_plus_XS(Potential):
         x, y = x+self.x_g, y+self.y_g
         return x, y
 
-    def _get_Wynne_ellipse_params(self, x_s: torch.Tensor, y_s: torch.Tensor, **kwargs):
-        x_s, y_s = self.standardize(x_s, y_s)
+    def _get_Wynne_ellipse_params(self, **kwargs):
+        x_s, y_s = self.standardize(self.x_s, self.y_s)
         x_e, y_e = (x_s)/(1+self.gamma), (y_s)/(1-self.gamma)
         x_a, y_a = self.b/(1+self.gamma), self.b/((1-self.gamma)*(1-self.eps))
         return (x_e, y_e), (x_a, y_a)
     
-    def get_W(self, x_s, y_s, **kwargs):
-        x_s, y_s = self.standardize(x_s, y_s)
+    def get_W(self, **kwargs):
+        x_s, y_s = self.standardize(self.x_s, self.y_s)
         b, eps, g = self.b, self.eps, self.gamma
 
         f = (1-eps) / (b * (1 - (1-eps)**2 * (1-g)/(1+g)))

@@ -1,4 +1,4 @@
-from quartic_solver import get_ACLE_angular_solns
+from torch_quartic_solver import ACLE
 # from np_potentials import SIEP_plus_XS
 from potentials import SIEP_plus_XS
 
@@ -14,9 +14,9 @@ import os
     (complex(0, -1), [-1j, -1j, -1j, 1j]),
 ])
 def test_solve_quartic(W, expected):
-    solutions = get_ACLE_angular_solns(W)
+    solutions = ACLE(W)
     # Convert solutions to a set for order-independent comparison
-    solutions_set = {complex(round(sol.real, 3), round(sol.imag, 3)) for sol in solutions}
+    solutions_set = {complex(round(sol.real.item(), 3), round(sol.imag.item(), 3)) for sol in solutions}
     expected_set = {complex(round(sol.real, 3), round(sol.imag, 3)) for sol in expected}
     assert solutions_set == expected_set
 
@@ -49,16 +49,10 @@ def eq_config(config1, config2, check_mag=True):
     return all(any(pytest.approx(res, rel=1e-5, abs=1e-8) == exp for exp in config2_set) for res in config1_set)
 
 def get_image_configuration(params):
-    ks = SIEP_plus_XS(**params)
-    x_s, y_s = params["x_s"], params["y_s"]
-    data = ks.get_image_configuration(x_s=x_s, y_s=y_s)
-    return data
+    return SIEP_plus_XS(**params).get_image_configuration()
 
 def get_derivatives(params):
-    ks = SIEP_plus_XS(**params)
-    x_s, y_s = params["x_s"], params["y_s"]
-    data = ks.get_all_derivatives(x_s=x_s, y_s=y_s)
-    return data
+    return SIEP_plus_XS(**params).get_all_derivatives()
 
 def compare_images_derivs(images_1, derivs_1, images_2, derivs_2):
 
