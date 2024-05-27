@@ -64,7 +64,7 @@ def compare_images_derivs(images_1, derivs_1, images_2, derivs_2):
 
     # compare images
     assert len(images_1) == len(images_2)
-    # assert len(derivs_1) == len(derivs_2) # TODO change this back to assert
+    assert len(derivs_1) == len(derivs_2)
 
     assert eq_config(images_1, images_2, check_mag=True)
 
@@ -76,7 +76,6 @@ def compare_images_derivs(images_1, derivs_1, images_2, derivs_2):
                     if pytest.approx(images_1[f'x_{i}'], rel=1e-3, abs=1e-5) == images_2[f'x_{j}'] and pytest.approx(images_1[f'y_{i}'], rel=1e-3, abs=1e-5) == images_2[f'y_{j}'] and pytest.approx(images_1[f'mu_{i}'], rel=1e-3, abs=1e-5) == images_2[f'mu_{j}']:
                         map_btwn_imgs[i] = j
                         break
-    pass
     
     images_2 = {k.replace(str(j), str(i)): v for k, v in images_2.items() for i, j in map_btwn_imgs.items() if str(j) in k}
     derivs_2 = {k.replace(str(j), str(i)): v for k, v in derivs_2.items() for i, j in map_btwn_imgs.items() if str(j) in k}
@@ -180,6 +179,14 @@ def test_extensive_tests_files_python(file):
     expected_config = get_image_configuration(cf)
     assert eq_config(cf, expected_config), f"Test failed for file: {file}"
 
+
+def test_lost_image_python():
+    cf = {'x_s': 1.01, 'y_s': 0.2, 'b': 1.0, 'eps': 0.3, 'gamma': 0.4, 'x_g': 0.0, 'y_g': 0.0, 'theta': 0.0, 'x_1': 0.9575342621057897, 'y_1': -1.9137837937689728, 'mu_1': 1.825682000530294, 'x_2': 0.8836762210631626, 'y_2': 2.652048930432305, 'mu_2': 1.5247711451219972, 'x_3': 1.4139295048356963, 'y_3': -0.2502050959725841, 'mu_3': -0.9745473461406239}
+    expected_config = get_image_configuration(cf)
+    assert eq_config(cf, expected_config)
+    assert eq_config(expected_config, cf)
+
+
 def test_cpp_model_on_all_files():
     files = (['data/keeton_tests/' + file 
             for file in os.listdir('data/keeton_tests/') 
@@ -247,6 +254,30 @@ def test_cpp_derivs_with_python_on_all_files():
         assert compare_images_derivs(python_images, python_derivs, cpp_images, cpp_derivs), f"File {files[i]}, Expected {python_images}, {python_derivs} but got {cpp_images}, {cpp_derivs}"
 
 
+def test_lost_image_cpp():
+    cf = {'x_s': 1.01, 'y_s': 0.2, 'b': 1.0, 'eps': 0.3, 'gamma': 0.4, 'x_g': 0.0, 'y_g': 0.0, 'theta': 0.0, 'x_1': 0.9575342621057897, 'y_1': -1.9137837937689728, 'mu_1': 1.825682000530294, 'x_2': 0.8836762210631626, 'y_2': 2.652048930432305, 'mu_2': 1.5247711451219972, 'x_3': 1.4139295048356963, 'y_3': -0.2502050959725841, 'mu_3': -0.9745473461406239}
+
+    # write to csv, then run cpp model
+    df = pd.DataFrame([cf])
+    param_list = ["b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"]
+    df[param_list].to_csv("test.csv", index=False)
+    os.system("./potentials.exe -o test_output.csv test.csv")
+    cpp_output_df = pd.read_csv("test_output.csv")
+    os.remove("test.csv")
+    os.remove("test_output.csv")
+
+    image_col_names = [col for col in cpp_output_df.columns if col not in param_list] # ['x_1', 'y_1', 'mu_1', 'x_2', 'y_2', 'mu_2', 'x_3', 'y_3', 'mu_3', 'x_4', 'y_4', 'mu_4']
+
+    cpp_output_df = cpp_output_df[image_col_names].dropna(axis=1)
+    expected_output_df = df[cpp_output_df.columns]
+    for i, cpp_row in cpp_output_df.iterrows():
+        expected = expected_output_df.iloc[i].to_dict()
+        cpp = cpp_row.to_dict()
+        assert eq_config(expected, cpp), f"Expected {expected} but got {cpp}"
+
+
+
+
 
 
     
@@ -258,3 +289,4 @@ if __name__ == "__main__":
     # just test the cpp model
     # pytest.main([__file__, "-k test_extensive_tests_files_python"])
     # pytest.main([__file__, "-k test_cpp_derivs_with_python_on_all_files"])
+    # pytest.main([__file__, "-k test_lost_image_cpp"])

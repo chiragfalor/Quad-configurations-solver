@@ -260,13 +260,47 @@ public:
         return ellipse_point + get_Wynne_ellipse_center();
 
     }
+    // is image lost
+    // # get hyperbola center
+    //     W = self.get_W(**kwargs)
+    //     (x_e, y_e), (x_a, y_a) = self._get_Wynne_ellipse_params(**kwargs)
+    //     x_h, y_h = W.real * x_a + x_e, W.imag * y_a + y_e
+
+    //     x_g, y_g = 0, 0 # in standardized coordinates, galaxy is at origin
+
+    //     g_angle = torch.atan2(y_g-y_h, x_g-x_h)
+    //     e_angle = torch.atan2(y_e-y_h, x_e-x_h)
+
+
+    //     image_angle = torch.atan2(im.imag-y_h, im.real-x_h)
+
+    //     # an image is lost if it is between the galaxy and center of ellipse on the hyperbola0
+    //     return (g_angle < angle < e_angle) or (g_angle > angle > e_angle)0
+
+    bool isImageLost(Point scronchedImage) {
+        Point W = get_W();
+        Point ellipse_center = get_Wynne_ellipse_center();
+        Point ellipse_semiaxes = get_Wynne_ellipse_semiaxes();
+        Point hyperbola_center = Point(W.x * ellipse_semiaxes.x + ellipse_center.x, W.y * ellipse_semiaxes.y + ellipse_center.y);
+
+        real x_g = 0.0, y_g = 0.0;
+        real g_angle = atan2(y_g - hyperbola_center.y, x_g - hyperbola_center.x);
+        real e_angle = atan2(ellipse_center.y - hyperbola_center.y, ellipse_center.x - hyperbola_center.x);
+        real image_angle = atan2(scronchedImage.y - hyperbola_center.y, scronchedImage.x - hyperbola_center.x);
+
+        return (g_angle < image_angle && image_angle < e_angle) || (g_angle > image_angle && image_angle > e_angle);
+
+    }
 
     vector<Point> get_image_configurations() {
         vector<Point> image_configurations;
         vector<Point> solns = ACLE_dual(get_W());
 
     for (Point soln : solns) {
-            image_configurations.push_back(scronch(soln));
+            Point scronchedSoln = scronch(soln);
+            if (!isImageLost(scronchedSoln)) {
+                image_configurations.push_back(scronchedSoln);
+            }
         }
 
         return image_configurations;
