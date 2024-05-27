@@ -26,12 +26,22 @@ def _get_quartic_solution(W, pm1=+1, pm2=+1):
     )
 
     z = (term1 + pm2 * torch.sqrt(term1**2 - 2 * term2)) / 2
+
+    # if magnitude of z is not close to 1 return None
+    if not isclose(torch.abs(z), torch.tensor(1)):
+        return None
+    
     return z
 
 def ACLE(W) -> list[torch.Tensor]:
-    # convert to torch
-    # W = torch.tensor(W, dtype=torch.complex128, requires_grad=True)
-    return [_get_quartic_solution(W, pm1, pm2) for pm1 in [+1, -1] for pm2 in [+1, -1]]
+    solns = []
+    for i in range(4):
+        pm1 = [+1, -1][i // 2]
+        pm2 = [+1, -1][i % 2]
+        s = _get_quartic_solution(W, pm1, pm2)
+        if s is not None:
+            solns.append(s)
+    return solns
 
 def ACLE_dWreal(W, z):
     return z * (z*z - 1.0) / (2.0 * z*z*z - 3.0 * z*z * W + W.conj())

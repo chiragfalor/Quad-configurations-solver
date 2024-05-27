@@ -159,16 +159,14 @@ vector<Point> ACLE_dual(Point W) {
         complex<double> z = solns_complex[i];
         Point soln = Point(z.real(), z.imag());
 
-        // TODO, check why is there minus sign in the cross-derivative terms
-
         if(Wx[1] != 0.0) {
             soln.x[1] = Wx[1] * ACLE_dWreal(W_complex, z).real(); 
-            soln.y[1] = -Wx[1] * ACLE_dWreal(W_complex, z).imag();
+            soln.y[1] = Wx[1] * ACLE_dWreal(W_complex, z).imag();
 
         }
 
         if(Wy[1] != 0.0) {
-            soln.x[1] -= Wy[1] * ACLE_dWimag(W_complex, z).real();
+            soln.x[1] += Wy[1] * ACLE_dWimag(W_complex, z).real();
             soln.y[1] += Wy[1] * ACLE_dWimag(W_complex, z).imag();
         }
 
@@ -275,8 +273,8 @@ public:
     }
 
     tuple<real, real, real> double_grad_pot(real x, real y) {
-        real t = pow((x*x + y*y/(pow(1-eps, 2))), 0.5);
-        real f = b / (pow(t, 3) * pow(1-eps, 2));
+        real t = pow((x*x + y*y/((1-eps)*(1-eps))), 0.5);
+        real f = b / (t*t*t * ((1-eps)*(1-eps)));
         real D_xx = f*y*y - gamma;
         real D_yy = f*x*x + gamma;
         real D_xy = -f*x*y;
@@ -286,7 +284,7 @@ public:
     real soln_to_magnification(Point scronched_soln) {
         real D_xx, D_yy, D_xy;
         tie(D_xx, D_yy, D_xy) = double_grad_pot(scronched_soln.x, scronched_soln.y);
-        real mu_inv = (1 - D_xx) * (1 - D_yy) - pow(D_xy, 2);
+        real mu_inv = (1 - D_xx) * (1 - D_yy) - D_xy*D_xy;
         return 1 / mu_inv;
     }
 
@@ -320,7 +318,7 @@ private:
 
     Point get_W() {
         Point point = standardize(source);
-        real f = (1 - eps) / (b * (1 - pow(1 - eps, 2) * (1 - gamma) / (1 + gamma)));
+        real f = (1 - eps) / (b * (1 - ((1-eps)*(1-eps))* (1 - gamma) / (1 + gamma)));
         Point W = f * Point((1 - eps) * (1 - gamma) / (1 + gamma) * point.x, -point.y);
         return W;
     }

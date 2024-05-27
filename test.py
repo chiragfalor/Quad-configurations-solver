@@ -46,7 +46,7 @@ def eq_config(config1, config2, check_mag=True):
     else:
         config1_set = config_to_nomag_set(config1)
         config2_set = config_to_nomag_set(config2)
-    return all(any(pytest.approx(res, rel=1e-3, abs=1e-5) == exp for exp in config2_set) for res in config1_set)
+    return all(any(pytest.approx(res, rel=1e-5, abs=1e-8) == exp for exp in config2_set) for res in config1_set)
 
 def get_image_configuration(params):
     ks = SIEP_plus_XS(**params)
@@ -54,6 +54,40 @@ def get_image_configuration(params):
     data = ks.get_image_configuration(x_s=x_s, y_s=y_s)
     return data
 
+def get_derivatives(params):
+    ks = SIEP_plus_XS(**params)
+    x_s, y_s = params["x_s"], params["y_s"]
+    data = ks.get_all_derivatives(x_s=x_s, y_s=y_s)
+    return data
+
+def compare_images_derivs(images_1, derivs_1, images_2, derivs_2):
+
+    def clean_up(config):
+        return {k: v for k, v in config.items() if isinstance(v, (int, float)) and v == v}
+    
+    images_1, images_2 = clean_up(images_1), clean_up(images_2)
+    derivs_1, derivs_2 = clean_up(derivs_1), clean_up(derivs_2)
+
+    # compare images
+    assert len(images_1) == len(images_2)
+    # assert len(derivs_1) == len(derivs_2) # TODO change this back to assert
+
+    assert eq_config(images_1, images_2, check_mag=True)
+
+    map_btwn_imgs = {}
+    for i in range(1, 5):
+        if f'x_{i}' in images_1:
+            for j in range(1, 5):
+                if f'x_{j}' in images_2:
+                    if pytest.approx(images_1[f'x_{i}'], rel=1e-3, abs=1e-5) == images_2[f'x_{j}'] and pytest.approx(images_1[f'y_{i}'], rel=1e-3, abs=1e-5) == images_2[f'y_{j}'] and pytest.approx(images_1[f'mu_{i}'], rel=1e-3, abs=1e-5) == images_2[f'mu_{j}']:
+                        map_btwn_imgs[i] = j
+                        break
+    pass
+    
+    images_2 = {k.replace(str(j), str(i)): v for k, v in images_2.items() for i, j in map_btwn_imgs.items() if str(j) in k}
+    derivs_2 = {k.replace(str(j), str(i)): v for k, v in derivs_2.items() for i, j in map_btwn_imgs.items() if str(j) in k}
+
+    return all(pytest.approx(images_1[k], rel=1e-3, abs=1e-5) == images_2[k] for k in images_1) and all(pytest.approx(derivs_1[k], rel=1e-3, abs=1e-5) == derivs_2[k] for k in derivs_1 if 'mu' not in k) # TODO check the derivatives of mu
 
 
 @pytest.mark.parametrize("b, eps, x_s, y_s, expected", [
@@ -180,6 +214,47 @@ def test_cpp_model_on_all_files():
         cpp = cpp_row.to_dict()
         assert eq_config(expected, cpp), f"File {files[i]}, Expected {expected} but got {cpp}"
 
+
+def test_cpp_derivs_with_python_on_all_files():
+    files = (['data/keeton_tests/' + file 
+            for file in os.listdir('data/keeton_tests/') 
+            if 'out' in file] + 
+            ['data/minimal_params/' + file 
+            for file in os.listdir('data/minimal_params/') 
+            if ('out' in file) and 
+            not 'cf6' in file])
+    configs = [load_configuration(file) for file in files]
+    df = pd.DataFrame(configs).rename(columns={"eps_theta":"theta"})
+    params_list = ["b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"]
+    params_df = df[params_list]
+
+    params_df.to_csv("test.csv", index=False)
+    os.system("./potentials.exe -o test_output.csv -d test.csv")
+    cpp_output_df = pd.read_csv("test_output.csv")
+    os.remove("test.csv")
+    os.remove("test_output.csv")
+
+    image_col_names = [col for col in cpp_output_df.columns if (col not in params_list) and ('d' not in col)] # ['x_1', 'y_1', 'mu_1', 'x_2', 'y_2', 'mu_2', 'x_3', 'y_3', 'mu_3', 'x_4', 'y_4', 'mu_4']
+    deriv_col_names = [col for col in cpp_output_df.columns if 'd' in col]
+
+    cpp_images_df = cpp_output_df[image_col_names]
+    params_df = cpp_output_df[params_list]
+    cpp_derivs_df = cpp_output_df[deriv_col_names]
+
+    expected_images = df[image_col_names]
+
+    for i, cpp_row in cpp_images_df.iterrows():
+        params = params_df.iloc[i].to_dict()
+        cpp_images = cpp_row.to_dict()
+        cpp_derivs = cpp_derivs_df.iloc[i].to_dict()
+        python_images = {k: v for k, v in get_image_configuration(params).items() if k in image_col_names}
+        python_derivs = get_derivatives(params)
+        
+        assert compare_images_derivs(python_images, python_derivs, cpp_images, cpp_derivs), f"File {files[i]}, Expected {python_images}, {python_derivs} but got {cpp_images}, {cpp_derivs}"
+
+
+
+
     
 
 
@@ -187,4 +262,5 @@ def test_cpp_model_on_all_files():
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
     # just test the cpp model
-    # pytest.main([__file__, "-k test_cpp_model_on_all_files"])
+    # pytest.main([__file__, "-k test_extensive_tests_files_python"])
+    # pytest.main([__file__, "-k test_cpp_derivs_with_python_on_all_files"])

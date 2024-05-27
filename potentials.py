@@ -1,4 +1,4 @@
-from torch_quartic_solver import _get_quartic_solution
+from torch_quartic_solver import ACLE
 import torch
 
 def rotate(x, y, theta, center=torch.tensor((0, 0))):
@@ -89,21 +89,9 @@ class Potential:
         mu_inv = (1 - D_xx)*(1 - D_yy) - D_xy**2
         return 1/mu_inv
     
-    def get_soln(self, image_id=0, **kwargs):
-        W = self.get_W(**kwargs)
-        pm1 = [+1, -1][image_id // 2]
-        pm2 = [+1, -1][image_id % 2]
-
-        assert isinstance(W, torch.Tensor)
-        assert W.dtype == torch.complex128
-
-        soln = _get_quartic_solution(W, pm1, pm2)
-
-        return soln
-    
     def _images_and_mags(self, **kwargs):
         kwargs = tensorize_dict(kwargs)
-        soln = [self.get_soln(image_id=i, **kwargs) for i in range(4)]
+        soln = ACLE(self.get_W(**kwargs))
         scronched_solns = [self.scronch(s, **kwargs) for s in soln]
         scronched_solns = self.remove_the_lost_image(scronched_solns, **kwargs)
         
@@ -142,11 +130,11 @@ class Potential:
         for param_name, param in self.pot_params.items():
             for i, mag in enumerate(mags):
                 dW = self.d(mag, param)
-                derivatives[f'dmu_{i+1}_d{param_name}'] = dW.detach().numpy().item()
+                derivatives[f'd(mu_{i+1})/d({param_name})'] = dW.detach().numpy().item()
             for i, image in enumerate(images):
                 dW = self.d(image.real, param)+1j*self.d(image.imag, param)
-                derivatives[f'dx_{i+1}_d{param_name}'] = dW.real.detach().numpy().item()
-                derivatives[f'dy_{i+1}_d{param_name}'] = dW.imag.detach().numpy().item()
+                derivatives[f'd(x_{i+1})/d({param_name})'] = dW.real.detach().numpy().item()
+                derivatives[f'd(y_{i+1})/d({param_name})'] = dW.imag.detach().numpy().item()
         return derivatives
     
     def get_image_configuration(self, raw=False, **kwargs):
@@ -197,8 +185,10 @@ class Potential:
 
 
 class SIEP_plus_XS(Potential):
-    def __init__(self, b=0, eps=0, gamma=0, x_g=0, y_g=0, eps_theta=0, gamma_theta=None, **kwargs):
+    def __init__(self, b=0, eps=0, gamma=0, x_g=0, y_g=0, eps_theta=0, gamma_theta=None, theta=None, **kwargs):
         # phi = b\sqrt{x^2 + y^2/(1-eps)^2} - gamma/2*(x^2 - y^2)
+        if theta is not None:
+            eps_theta = theta
         self.gamma_theta = eps_theta if gamma_theta is None else gamma_theta
         if abs(eps) < 1e-5:
             eps_theta = self.gamma_theta
