@@ -23,7 +23,7 @@ def tensorize_dict(d):
 class Potential:
     def __init__(self, **kwargs):
         self.kwargs = kwargs
-        self.pot_params = tensorize_dict(kwargs)
+        self.params = tensorize_dict(kwargs)
 
     def get_W(self, x_s, y_s, **kwargs):
         '''
@@ -114,7 +114,7 @@ class Potential:
         qty, i = qty.split('_')
         i = int(i)
         assert qty in ['x', 'y', 'mu']
-        param = self.pot_params[param_name] if param_name in self.pot_params else kwargs[param_name] if param_name in kwargs else KeyError(f"Parameter {param_name} not found in potential parameters or kwargs")
+        param = self.params[param_name] if param_name in self.params else kwargs[param_name] if param_name in kwargs else KeyError(f"Parameter {param_name} not found in potential parameters or kwargs")
         if qty == 'x':
             return self.d(images[i-1].real, param).detach().numpy().item()
         elif qty == 'y':
@@ -125,9 +125,9 @@ class Potential:
     def get_all_derivatives(self, **kwargs):
         kwargs = tensorize_dict(kwargs)
         images, mags = self._images_and_mags(**kwargs)
-        kwargs.update(self.pot_params)
+        kwargs.update(self.params)
         derivatives = {}
-        for param_name, param in self.pot_params.items():
+        for param_name, param in self.params.items():
             for i, mag in enumerate(mags):
                 dW = self.d(mag, param)
                 derivatives[f'd(mu_{i+1})/d({param_name})'] = dW.detach().numpy().item()
@@ -141,7 +141,7 @@ class Potential:
         image_conf = tensorize_dict(kwargs) if raw else kwargs.copy()
         images, mags = self.images_and_mags(**image_conf) if not raw else self._images_and_mags(**image_conf)
 
-        image_conf.update(self.pot_params if raw else {k: v.detach().numpy().item() for k, v in self.pot_params.items()})
+        image_conf.update(self.params if raw else {k: v.detach().numpy().item() for k, v in self.params.items()})
         for i, (im, mag) in enumerate(zip(images, mags)):
             image_conf[f'x_{i+1}'] = im.real
             image_conf[f'y_{i+1}'] = im.imag
@@ -195,12 +195,12 @@ class SIEP_plus_XS(Potential):
         # assert theta are close, we don't handle unparallel cases yet
         assert abs(self.gamma_theta - eps_theta) < 1e-3 or abs(gamma*eps) < 1e-10
         super().__init__(b=b, eps=eps, gamma=gamma, x_g=x_g, y_g=y_g, theta=eps_theta, x_s=x_s, y_s=y_s)
-        self.b = self.pot_params['b']
-        self.eps = self.pot_params['eps']
-        self.gamma = self.pot_params['gamma']
-        self.x_g, self.y_g = self.pot_params['x_g'], self.pot_params['y_g']
-        self.eps_theta, self.gamma_theta = self.pot_params['theta'], self.pot_params['theta']
-        self.x_s, self.y_s = self.pot_params['x_s'], self.pot_params['y_s']
+        self.b = self.params['b']
+        self.eps = self.params['eps']
+        self.gamma = self.params['gamma']
+        self.x_g, self.y_g = self.params['x_g'], self.params['y_g']
+        self.eps_theta, self.gamma_theta = self.params['theta'], self.params['theta']
+        self.x_s, self.y_s = self.params['x_s'], self.params['y_s']
         # self.potential = lambda x, y: b*torch.sqrt((x-x_g)**2 + (y-y_g)**2/(1-eps)**2) - gamma/2*((x-x_g)**2 - (y-y_g)**2)
         self.potential = lambda x, y: b*torch.sqrt(x**2 + y**2/(1-eps)**2) - gamma/2*(x**2 - y**2)
 

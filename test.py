@@ -7,6 +7,14 @@ import pandas as pd
 import pytest
 import os
 
+
+keeton_test_files = ['data/keeton_tests/' + file 
+            for file in os.listdir('data/keeton_tests/') 
+            if 'out' in file] + ['data/minimal_params/' + file 
+            for file in os.listdir('data/minimal_params/') 
+            if ('out' in file) and 
+            not 'cf6' in file]
+
 @pytest.mark.parametrize("W, expected", [
     (complex(0, 0), [1, -1, 1j, -1j]),
     (complex(1, 0), [1, 1, 1, -1]),
@@ -171,17 +179,7 @@ def load_configuration(file_path):
     
     return config
 
-
-@pytest.mark.parametrize("file", ['data/minimal_params/' + file 
-                                  for file in os.listdir('data/minimal_params/') 
-                                  if ('out' in file) and 
-                                  not 'cf6' in file]) # cf6 has unaligned shear and elliptcity 
-def test_trivial_param_files_python(file):
-    cf = load_configuration(file)
-    expected_config = get_image_configuration(cf)
-    assert eq_config(cf, expected_config), f"Test failed for file: {file}"
-
-@pytest.mark.parametrize("file", ['data/keeton_tests/' + file for file in os.listdir('data/keeton_tests/') if 'out' in file])
+@pytest.mark.parametrize("file", keeton_test_files)
 def test_extensive_tests_files_python(file):
     cf = load_configuration(file)
     expected_config = get_image_configuration(cf)
@@ -200,26 +198,14 @@ def test_lost_image_cpp():
     assert eq_config(cf, result)
     assert eq_config(result, cf)
 
-@pytest.mark.parametrize("file", ['data/keeton_tests/' + file 
-            for file in os.listdir('data/keeton_tests/') 
-            if 'out' in file] + 
-            ['data/minimal_params/' + file 
-            for file in os.listdir('data/minimal_params/') 
-            if ('out' in file) and 
-            not 'cf6' in file])
+@pytest.mark.parametrize("file", keeton_test_files)
 def test_extensive_tests_files_cpp(file):
     cf = load_configuration(file)
     expected_config = get_image_configuration(cf)
     result = CPP_get_image_configuration(cf)
     assert eq_config(expected_config, result), f"Test failed for file: {file}"
 
-@pytest.mark.parametrize("file", ['data/keeton_tests/' + file 
-            for file in os.listdir('data/keeton_tests/') 
-            if 'out' in file] + 
-            ['data/minimal_params/' + file 
-            for file in os.listdir('data/minimal_params/') 
-            if ('out' in file) and 
-            not 'cf6' in file])
+@pytest.mark.parametrize("file", keeton_test_files)
 def test_cpp_python_derivs(file):
     cf = load_configuration(file)
     expected_images = get_image_configuration(cf)
@@ -239,13 +225,7 @@ def test_cpp_python_derivs(file):
     assert compare_images_derivs(expected_images, expected_derivs, result_images, result_derivs), f"Test failed for file: {file}"
 
 def test_cpp_model_csv_on_all_files():
-    files = (['data/keeton_tests/' + file 
-            for file in os.listdir('data/keeton_tests/') 
-            if 'out' in file] + 
-            ['data/minimal_params/' + file 
-            for file in os.listdir('data/minimal_params/') 
-            if ('out' in file) and 
-            not 'cf6' in file])
+    files = keeton_test_files
     configs = [load_configuration(file) for file in files]
     df = pd.DataFrame(configs)
     params_list = ["b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"]
@@ -268,13 +248,7 @@ def test_cpp_model_csv_on_all_files():
 
 
 def test_cpp_derivs_csv_with_python_on_all_files():
-    files = (['data/keeton_tests/' + file 
-            for file in os.listdir('data/keeton_tests/') 
-            if 'out' in file] + 
-            ['data/minimal_params/' + file 
-            for file in os.listdir('data/minimal_params/') 
-            if ('out' in file) and 
-            not 'cf6' in file])
+    files = keeton_test_files
     configs = [load_configuration(file) for file in files]
     df = pd.DataFrame(configs)
     params_list = ["b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"]
@@ -304,27 +278,60 @@ def test_cpp_derivs_csv_with_python_on_all_files():
         
         assert compare_images_derivs(python_images, python_derivs, cpp_images, cpp_derivs), f"File {files[i]}, Expected {python_images}, {python_derivs} but got {cpp_images}, {cpp_derivs}"
 
+def finite_difference_derivative(pot, param, h=1e-5):
+    # Store the original parameter value
+    original_value = pot.params[param]
+    
+    # Perturb the parameter by +h
+    pot.params[param] = original_value + h
+    pot_plus_h = SIEP_plus_XS(**pot.params)
+    config_plus_h = pot_plus_h.get_image_configuration()
+    
+    # Perturb the parameter by -h
+    pot.params[param] = original_value - h
+    pot_minus_h = SIEP_plus_XS(**pot.params)
+    config_minus_h = pot_minus_h.get_image_configuration()
+    
+    # Restore the original parameter value
+    pot.params[param] = original_value
+    
+    # Calculate finite differences for each output variable
+    finite_diffs = {}
+    for key in config_plus_h:
+        if key in config_minus_h:  # Ensure the key exists in both configurations
+            finite_diffs['d({})/d({})'.format(key, param)] = (
+                (config_plus_h[key] - config_minus_h[key]) / (2 * h)
+            )
+    
+    return finite_diffs
 
-def test_lost_image_cpp():
-    cf = {'x_s': 1.01, 'y_s': 0.2, 'b': 1.0, 'eps': 0.3, 'gamma': 0.4, 'x_g': 0.0, 'y_g': 0.0, 'theta': 0.0, 'x_1': 0.9575342621057897, 'y_1': -1.9137837937689728, 'mu_1': 1.825682000530294, 'x_2': 0.8836762210631626, 'y_2': 2.652048930432305, 'mu_2': 1.5247711451219972, 'x_3': 1.4139295048356963, 'y_3': -0.2502050959725841, 'mu_3': -0.9745473461406239}
+def derivatives_test(conf, Potential_class):
+    
+    pot = Potential_class(**conf)
+    analytical_derivatives = pot.get_all_derivatives()
+    
+    params_to_test = ['b', 'x_g', 'y_g', 'eps', 'gamma', 'theta', 'x_s', 'y_s']
+    for param in params_to_test:
+        print(f"Testing derivatives with respect to {param}")
+        finite_diff_derivatives = finite_difference_derivative(pot, param)
+        
+        for key in finite_diff_derivatives:
+            analytical = analytical_derivatives.get(key, None)
+            finite_diff = finite_diff_derivatives[key]
+            if analytical is not None:
+                # Compare values and print results
+                error = abs(analytical - finite_diff)
+                print(f"{key}: Analytical = {analytical}, Finite Diff = {finite_diff}, Error = {error}")
+                assert error < 1e-4, f"Test failed for {key} with error {error}"
 
-    # write to csv, then run cpp model
-    df = pd.DataFrame([cf])
-    param_list = ["b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"]
-    df[param_list].to_csv("test.csv", index=False)
-    os.system("./potentials.exe -o test_output.csv test.csv")
-    cpp_output_df = pd.read_csv("test_output.csv")
-    os.remove("test.csv")
-    os.remove("test_output.csv")
 
-    image_col_names = [col for col in cpp_output_df.columns if col not in param_list] # ['x_1', 'y_1', 'mu_1', 'x_2', 'y_2', 'mu_2', 'x_3', 'y_3', 'mu_3', 'x_4', 'y_4', 'mu_4']
+def test_finite_difference_derivative_test():
+    
+    conf = {'b': 1.0, 'x_g': 0.3, 'y_g': 0.5, 'eps': 0.3, 'gamma': 0.1, 'theta': 10.0, 'x_s': 0.04, 'y_s': 0.1}
 
-    cpp_output_df = cpp_output_df[image_col_names].dropna(axis=1)
-    expected_output_df = df[cpp_output_df.columns]
-    for i, cpp_row in cpp_output_df.iterrows():
-        expected = expected_output_df.iloc[i].to_dict()
-        cpp = cpp_row.to_dict()
-        assert eq_config(expected, cpp), f"Expected {expected} but got {cpp}"
+    # derivatives_test(conf, SIEP_plus_XS)
+    derivatives_test(conf, SIEP_plus_XS_CPP)
+
 
 
 
