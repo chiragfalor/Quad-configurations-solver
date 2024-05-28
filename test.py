@@ -1,6 +1,7 @@
 from torch_quartic_solver import ACLE
 # from np_potentials import SIEP_plus_XS
 from potentials import SIEP_plus_XS
+from python_wrapper import SIEP_plus_XS_CPP
 
 import pandas as pd
 import pytest
@@ -53,6 +54,12 @@ def get_image_configuration(params):
 
 def get_derivatives(params):
     return SIEP_plus_XS(**params).get_all_derivatives()
+
+def CPP_get_image_configuration(params):
+    return SIEP_plus_XS_CPP(**params).get_image_configuration()
+
+def CPP_get_derivatives(params):
+    return SIEP_plus_XS_CPP(**params).get_all_derivatives()
 
 def compare_images_derivs(images_1, derivs_1, images_2, derivs_2):
 
@@ -160,6 +167,7 @@ def load_configuration(file_path):
     config['eps_theta'] = (eps_theta - 90)
     config['gamma'] = gamma
     config['gamma_theta'] = gamma_theta - 90
+    config['theta'] = eps_theta - 90
     
     return config
 
@@ -186,8 +194,51 @@ def test_lost_image_python():
     assert eq_config(cf, expected_config)
     assert eq_config(expected_config, cf)
 
+def test_lost_image_cpp():
+    cf = {'x_s': 1.01, 'y_s': 0.2, 'b': 1.0, 'eps': 0.3, 'gamma': 0.4, 'x_g': 0.0, 'y_g': 0.0, 'theta': 0.0, 'x_1': 0.9575342621057897, 'y_1': -1.9137837937689728, 'mu_1': 1.825682000530294, 'x_2': 0.8836762210631626, 'y_2': 2.652048930432305, 'mu_2': 1.5247711451219972, 'x_3': 1.4139295048356963, 'y_3': -0.2502050959725841, 'mu_3': -0.9745473461406239}
+    result = CPP_get_image_configuration(cf)
+    assert eq_config(cf, result)
+    assert eq_config(result, cf)
 
-def test_cpp_model_on_all_files():
+@pytest.mark.parametrize("file", ['data/keeton_tests/' + file 
+            for file in os.listdir('data/keeton_tests/') 
+            if 'out' in file] + 
+            ['data/minimal_params/' + file 
+            for file in os.listdir('data/minimal_params/') 
+            if ('out' in file) and 
+            not 'cf6' in file])
+def test_extensive_tests_files_cpp(file):
+    cf = load_configuration(file)
+    expected_config = get_image_configuration(cf)
+    result = CPP_get_image_configuration(cf)
+    assert eq_config(expected_config, result), f"Test failed for file: {file}"
+
+@pytest.mark.parametrize("file", ['data/keeton_tests/' + file 
+            for file in os.listdir('data/keeton_tests/') 
+            if 'out' in file] + 
+            ['data/minimal_params/' + file 
+            for file in os.listdir('data/minimal_params/') 
+            if ('out' in file) and 
+            not 'cf6' in file])
+def test_cpp_python_derivs(file):
+    cf = load_configuration(file)
+    expected_images = get_image_configuration(cf)
+    expected_derivs = get_derivatives(cf)
+    result_images = CPP_get_image_configuration(cf)
+    result_derivs = CPP_get_derivatives(cf)
+    
+    params_list = ["b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"]
+    image_names = [k in expected_images.keys() for k in expected_images if k not in params_list]
+    deriv_names = [k in expected_derivs.keys() for k in expected_derivs if k.startswith('d')]
+
+    expected_images = {k: v for k, v in expected_images.items() if k in image_names}
+    expected_derivs = {k: v for k, v in expected_derivs.items() if k in deriv_names}
+    result_images = {k: v for k, v in result_images.items() if k in image_names}
+    result_derivs = {k: v for k, v in result_derivs.items() if k in deriv_names}
+
+    assert compare_images_derivs(expected_images, expected_derivs, result_images, result_derivs), f"Test failed for file: {file}"
+
+def test_cpp_model_csv_on_all_files():
     files = (['data/keeton_tests/' + file 
             for file in os.listdir('data/keeton_tests/') 
             if 'out' in file] + 
@@ -196,7 +247,7 @@ def test_cpp_model_on_all_files():
             if ('out' in file) and 
             not 'cf6' in file])
     configs = [load_configuration(file) for file in files]
-    df = pd.DataFrame(configs).rename(columns={"eps_theta":"theta"})
+    df = pd.DataFrame(configs)
     params_list = ["b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"]
     params_df = df[params_list]
 
@@ -216,7 +267,7 @@ def test_cpp_model_on_all_files():
         assert eq_config(expected, cpp), f"File {files[i]}, Expected {expected} but got {cpp}"
 
 
-def test_cpp_derivs_with_python_on_all_files():
+def test_cpp_derivs_csv_with_python_on_all_files():
     files = (['data/keeton_tests/' + file 
             for file in os.listdir('data/keeton_tests/') 
             if 'out' in file] + 
@@ -225,7 +276,7 @@ def test_cpp_derivs_with_python_on_all_files():
             if ('out' in file) and 
             not 'cf6' in file])
     configs = [load_configuration(file) for file in files]
-    df = pd.DataFrame(configs).rename(columns={"eps_theta":"theta"})
+    df = pd.DataFrame(configs)
     params_list = ["b", "x_g", "y_g", "eps", "gamma", "theta", "x_s", "y_s"]
     params_df = df[params_list]
 
@@ -287,6 +338,4 @@ def test_lost_image_cpp():
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
     # just test the cpp model
-    # pytest.main([__file__, "-k test_extensive_tests_files_python"])
-    # pytest.main([__file__, "-k test_cpp_derivs_with_python_on_all_files"])
-    # pytest.main([__file__, "-k test_lost_image_cpp"])
+    # pytest.main([__file__, "-k test_cpp_model_on_all_files", "-v"])

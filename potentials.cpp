@@ -558,8 +558,8 @@ void run_options::parse(int argc, char* argv[]) {
 }
 
 void run_options::print_help() {
-    cerr << "Usage: " << "potentials" << " [-n] [-o output.csv] [-v] input.csv" << endl;
-    cerr << "Usage:./potentials -c b x_g y_g eps gamma theta x_s y_s [-o output_file] [-v] [-n]" << endl;
+    cerr << "Usage: " << "potentials" << " [-n] [-d] [-o output.csv] [-v] input.csv" << endl;
+    cerr << "Usage:./potentials -c b x_g y_g eps gamma theta x_s y_s [-o output_file] [-v] [-n] [-d]" << endl;
     cerr << "Options:" << endl;
     cerr << "  -h, --help: print this help message" << endl;
     cerr << "  -c, --conf: calculate for a single configuration" << endl;
