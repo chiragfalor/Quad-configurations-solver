@@ -95,7 +95,7 @@ def compare_images_derivs(images_1, derivs_1, images_2, derivs_2):
     images_2 = {k.replace(str(j), str(i)): v for k, v in images_2.items() for i, j in map_btwn_imgs.items() if str(j) in k}
     derivs_2 = {k.replace(str(j), str(i)): v for k, v in derivs_2.items() for i, j in map_btwn_imgs.items() if str(j) in k}
 
-    return all(pytest.approx(images_1[k], rel=1e-3, abs=1e-5) == images_2[k] for k in images_1) and all(pytest.approx(derivs_1[k], rel=1e-3, abs=1e-5) == derivs_2[k] for k in derivs_1 if 'mu' not in k) # TODO check the derivatives of mu
+    return all(pytest.approx(images_1[k], rel=1e-3, abs=1e-5) == images_2[k] for k in images_1) and all(pytest.approx(derivs_1[k], rel=1e-3, abs=1e-5) == derivs_2[k] for k in derivs_1)
 
 
 @pytest.mark.parametrize("b, eps, x_s, y_s, expected", [

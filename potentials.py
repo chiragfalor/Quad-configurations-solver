@@ -69,10 +69,9 @@ class Potential:
         return torch.autograd.grad(self.potential(x, y), [x, y], create_graph=True, retain_graph=True)
     
     # second derivatives
-    def double_grad_pot(self, x, y):
+    def double_grad_pot_auto(self, x, y):
         '''
-        returns a tuple of the second derivatives of the potential.
-        (d^2 psi / dx^2, d^2 psi / dy^2, d^2 psi / dx dy)
+        This doesn't quite give the right result when taking the derivative of this. Using analytical derivatives
         '''
         grads = self.grad_pot(x, y)
         D_xx, D_xy = torch.autograd.grad(grads[0], [x, y], retain_graph=True, create_graph=True)
@@ -227,6 +226,19 @@ class SIEP_plus_XS(Potential):
         W = f*((1-eps)*(1-g)/(1+g) * (x_s) - 1j*(y_s))
 
         return W
+    
+        
+    def double_grad_pot(self, x, y):
+        '''
+        returns a tuple of the second derivatives of the potential.
+        (d^2 psi / dx^2, d^2 psi / dy^2, d^2 psi / dx dy)
+        '''
+        t = torch.sqrt(x**2 + (y/(1-self.eps))**2)
+        f = self.b / (t**3*(1-self.eps)**2)
+        D_xx = f*y**2 - self.gamma
+        D_yy = f*x**2 + self.gamma
+        D_xy = -f*x*y
+        return D_xx, D_yy, D_xy
 
 if __name__ == '__main__':
 
