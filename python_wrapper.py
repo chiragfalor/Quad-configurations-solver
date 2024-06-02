@@ -3,7 +3,7 @@ import subprocess
 class SIEP_plus_XS_CPP():
     def __init__(self, b=0, eps=0, gamma=0, x_g=0, y_g=0, theta=0, x_s=0, y_s=0, **kwargs):
         # phi = b\sqrt{x^2 + y^2/(1-eps)^2} - gamma/2*(x^2 - y^2)
-        self.executable_path = "./potentials.exe"
+        self.executable_path = "./CPP_code/Main.exe"
         self.params = {
             'b': b,
             'eps': eps,

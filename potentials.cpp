@@ -1,4 +1,3 @@
-// #include <bits/stdc++.h>
 #include <cmath>
 #include <complex>
 #include <iostream>
@@ -22,25 +21,14 @@ using std::complex;
 using std::cout;
 using std::cerr;
 using std::endl;
-using std::ifstream;
-using std::ofstream;
-using std::stringstream;
 using std::vector;
 using std::string;
 using std::ostream;
 using std::setw;
 using std::tuple;
 using std::tie;
-using std::make_tuple;
-using std::scientific;
-using std::showpos;
-using std::setprecision;
-using std::streambuf;
-using std::noshowpos;
-using std::fixed;
-using std::max;
 
-#define COUT_PRECISION 16
+constexpr int COUT_PRECISION = 16;
 
 // Convert degrees to radians if needed
 real toRadians(real degrees) 
@@ -99,7 +87,7 @@ Point rotate(Point point, real theta, Point center = {0.0, 0.0}) {
 
 complex<double> _get_quartic_solution(complex<double> W, int pm1 = +1, int pm2 = +1) {
     auto isclose = [](complex<double> a, complex<double> b, double rel_tol = 1e-09, double abs_tol = 1e-8) {
-        return abs(a - b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol);
+        return abs(a - b) <= std::max(rel_tol * std::max(abs(a), abs(b)), abs_tol);
     };
 
     complex<double> W_conj = conj(W);
@@ -312,7 +300,7 @@ public:
         real D_xx = f*y*y - gamma;
         real D_yy = f*x*x + gamma;
         real D_xy = -f*x*y;
-        return make_tuple(D_xx, D_yy, D_xy);
+        return std::make_tuple(D_xx, D_yy, D_xy);
     }
 
     real soln_to_magnification(Point scronched_soln) {
@@ -333,7 +321,7 @@ public:
             mags.push_back(computeMagnification ? soln_to_magnification(s) : 0.0);
         }
 
-        return make_tuple(images, mags);
+        return std::make_tuple(images, mags);
     }
 
 private:
@@ -396,8 +384,7 @@ MatrixXd get_derivatives(const PotentialParams& params, bool computeMagnificatio
 
 
 void generate_image_configurations_from_CSV(const string& inputFile, ostream& output, bool computeMagnification=true, bool computeDerivatives=false) {
-    ifstream inFile(inputFile);
-    // ofstream outFile(outputFile);
+    std::ifstream inFile(inputFile);
 
     if (!inFile.is_open()) {
         cerr << "Error opening file: " << inputFile << endl;
@@ -413,7 +400,7 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
 
     string line;
     while (getline(inFile, line)) {
-        stringstream ss(line);
+        std::stringstream ss(line);
         double value;
         vector<double> conf;
         while (ss >> value) {
@@ -451,7 +438,7 @@ void generate_image_configurations_from_CSV(const string& inputFile, ostream& ou
     }
 
     output << endl;
-    output << scientific << showpos << setprecision(16);
+    output << std::scientific << std::showpos << std::setprecision(16);
     for (const vector<double>& conf : input_configurations) {
         // double x_s = conf[6], y_s = conf[7], b = conf[0], eps = conf[3], gamma = conf[4], x_g = conf[1], y_g = conf[2], theta = conf[5];
         PotentialParams params(conf[0], conf[3], conf[4], conf[1], conf[2], conf[5], 0.0, conf[6], conf[7]);
@@ -573,7 +560,7 @@ void run_options::print_help() {
     return;
 }
 
-streambuf *original_cout_buffer;
+std::streambuf *original_cout_buffer;
 
 void restore_cout_buffer() {
     cout.rdbuf(original_cout_buffer);
@@ -587,7 +574,7 @@ int main(int argc, char* argv[]) {
     start = clock();
 
     ostream& output = cout;
-    ofstream file_output;
+    std::ofstream file_output;
 
     if (run_options::out_to_file) {
     if (!run_options::output_file.empty()) {
@@ -615,7 +602,7 @@ int main(int argc, char* argv[]) {
         
         output << "id" << setw(COUT_PRECISION+8) <<  "x" << setw(COUT_PRECISION+8) << "y" << setw(COUT_PRECISION+8) << "mu" << endl;
 
-        output << scientific << showpos << setprecision(16);
+        output << std::scientific << std::showpos << std::setprecision(16);
         for (size_t i = 0; i < images.size(); i++) {
             output << setw(2) << (i+1);
             output << setw(COUT_PRECISION+8) << images[i].x;
@@ -642,6 +629,6 @@ int main(int argc, char* argv[]) {
 
     end = clock();
     cout << "Execution completed successfully." << endl;
-    cout << "Execution time: " << noshowpos << fixed << setprecision(6) << ( 1e3 * (end - start) / CLOCKS_PER_SEC ) << " ms" <<endl;
+    cout << "Execution time: " << std::noshowpos << std::fixed << std::setprecision(6) << ( 1e3 * (end - start) / CLOCKS_PER_SEC ) << " ms" <<endl;
 
 }

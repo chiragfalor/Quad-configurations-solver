@@ -15,6 +15,8 @@ keeton_test_files = ['data/keeton_tests/' + file
             if ('out' in file) and 
             not 'cf6' in file]
 
+CPP_file_path = "./CPP_code/Main.exe"
+
 @pytest.mark.parametrize("W, expected", [
     (complex(0, 0), [1, -1, 1j, -1j]),
     (complex(1, 0), [1, 1, 1, -1]),
@@ -232,7 +234,7 @@ def test_cpp_model_csv_on_all_files():
     params_df = df[params_list]
 
     params_df.to_csv("test.csv", index=False)
-    os.system("./potentials.exe -o test_output.csv test.csv")
+    os.system(f"{CPP_file_path} -o test_output.csv test.csv")
     cpp_output_df = pd.read_csv("test_output.csv")
     os.remove("test.csv")
     os.remove("test_output.csv")
@@ -255,7 +257,7 @@ def test_cpp_derivs_csv_with_python_on_all_files():
     params_df = df[params_list]
 
     params_df.to_csv("test.csv", index=False)
-    os.system("./potentials.exe -o test_output.csv -d test.csv")
+    os.system(f"{CPP_file_path} -o test_output.csv -d test.csv")
     cpp_output_df = pd.read_csv("test_output.csv")
     os.remove("test.csv")
     os.remove("test_output.csv")
